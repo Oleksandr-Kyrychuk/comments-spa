@@ -1,11 +1,16 @@
 from rest_framework import serializers
 from captcha.serializers import CaptchaModelSerializer  # Вбудований серіалізатор
-from .models import Comment
+from .models import Comment, User
 import bleach
 from PIL import Image
 from django.core.files.base import ContentFile
 from io import BytesIO
 from django.core.exceptions import ValidationError
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'homepage', 'created_at']
 
 class CommentSerializer(CaptchaModelSerializer):
     def validate(self, data):
