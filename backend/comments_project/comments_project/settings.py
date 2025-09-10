@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'captcha',
     'channels',
     'rest_framework_simplejwt',
+    'django_filters',
     'comments.apps.CommentsConfig',
 ]
 
@@ -149,3 +150,8 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 25,
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
 }
+
+CAPTCHA_LENGTH = 6
+CAPTCHA_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789'
+CAPTCHA_IMAGE_SIZE = (100, 30)
+CAPTCHA_TIMEOUT = 5
