@@ -6,18 +6,24 @@ from .models import Comment
 from .serializers import CommentSerializer
 from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import AllowAny
+from rest_framework.filters import OrderingFilter
+import bleach
+from rest_framework.response import Response
+from rest_framework import status
 
 class CommentListCreateView(generics.ListCreateAPIView):
     queryset = Comment.objects.filter(parent__isnull=True)  # Тільки кореневі коментарі
     serializer_class = CommentSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]  # JWT для POST
+    permission_classes = [AllowAny]  # JWT для POST
     authentication_classes = [JWTAuthentication]
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_fields = ['user_name', 'email', 'created_at']
     ordering_fields = ['user_name', 'email', 'created_at']
     pagination_class = PageNumberPagination
 
 class PreviewView(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
         text = request.data.get('text', '')
         ALLOWED_TAGS = ['a', 'code', 'i', 'strong']
