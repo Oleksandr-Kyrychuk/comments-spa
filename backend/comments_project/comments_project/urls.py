@@ -18,9 +18,17 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from django.middleware.csrf import get_token
+from django.http import HttpResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
+
+@ensure_csrf_cookie
+def csrf_cookie(request):
+    return HttpResponse(status=200)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('csrf-cookie/', csrf_cookie, name='csrf_cookie'),
     path('api/', include('comments.urls')),
     path('captcha/', include('captcha.urls')),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

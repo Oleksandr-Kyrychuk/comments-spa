@@ -13,6 +13,13 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['username', 'email', 'homepage', 'created_at']
 
 class CommentSerializer(CaptchaModelSerializer):
+    replies = serializers.SerializerMethodField()
+
+    def get_replies(self, obj):
+        qs = obj.replies.all()  # якщо поле parent має related_name='replies'
+        serializer = CommentSerializer(qs, many=True)
+        return serializer.data
+
     def validate(self, data):
         # CAPTCHA автоматично валідується через CaptchaModelSerializer
         # Очищення HTML-тегів для захисту від XSS
@@ -45,4 +52,4 @@ class CommentSerializer(CaptchaModelSerializer):
 
     class Meta:
         model = Comment
-        fields = ['user_name', 'email', 'home_page', 'text', 'parent', 'file', 'created_at', 'captcha_hashkey', 'captcha_code']
+        fields = ['user_name', 'email', 'home_page', 'text', 'parent', 'file', 'created_at', 'captcha_hashkey', 'captcha_code', 'replies']
