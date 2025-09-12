@@ -156,8 +156,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 ASGI_APPLICATION = 'comments_project.asgi.application'
 CHANNEL_LAYERS = {
     'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',  # Для локального, пізніше Redis
-    }
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [('redis', 6379)],  # Використовуємо назву сервісу
+        },
+    },
 }
 
 REST_FRAMEWORK = {
