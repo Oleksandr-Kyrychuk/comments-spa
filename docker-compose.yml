@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  django:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - media:/app/media
+    depends_on:
+      - redis
+    environment:
+      - DEBUG=False  # У продакшні вимкни DEBUG
+      - ALLOWED_HOSTS=django localhost 127.0.0.1
+      - DJANGO_SETTINGS_MODULE=comments_project.settings
+    networks:
+      - app-network
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - django
+    networks:
+      - app-network
+
+volumes:
+  media:
+
+networks:
+  app-network:
+    driver: bridge

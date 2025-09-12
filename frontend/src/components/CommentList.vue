@@ -33,7 +33,16 @@ export default {
       set: (val) => store.commit('SET_ORDERING', val),
     });
 
-    onMounted(() => store.dispatch('fetchComments'));
+    const WS_BASE = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/comments/';
+
+    onMounted(() => {
+  store.dispatch('fetchComments');
+
+  const ws = new WebSocket(WS_BASE);
+  ws.onmessage = (event) => {
+    console.log('New WS message:', event.data);
+  };
+});
 
     const changePage = (dir) => {
       const current = store.state.currentPage;
