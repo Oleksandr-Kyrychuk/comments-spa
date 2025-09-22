@@ -12,6 +12,10 @@ import bleach
 from rest_framework.response import Response
 from rest_framework import status
 import logging
+from .tasks import save_comment
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+
 
 logger = logging.getLogger(__name__)
 
@@ -28,13 +32,19 @@ class CommentListCreateView(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        if not serializer.is_valid():
-            logger.error(f"Validation errors: {serializer.errors}")
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        if serializer.is_valid():
+            save_comment.delay(serializer.validated_data)
+            return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @method_decorator(cache_page(60 * 15))  # Кеш на 15 хвилин
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+class TestCaptchaRefreshView(APIView):
+    def get(self, request):
+        return Response({"message": "CAPTCHA refresh працює!"})
+
+    
 class PreviewView(APIView):
     permission_classes = [AllowAny]
     def post(self, request):
