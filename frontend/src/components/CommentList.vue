@@ -1,3 +1,4 @@
+<!-- CommentList.vue -->
 <template>
   <div>
     <select v-model="ordering" @change="changeOrdering">
@@ -6,26 +7,29 @@
       <option value="user_name">By user name</option>
       <option value="email">By email</option>
     </select>
-    <table>
-      <thead><tr><th>User</th><th>Email</th><th>Text</th><th>File</th><th>Date</th></tr></thead>
-      <tbody>
-        <CommentItem v-for="comment in comments" :key="comment.id" :comment="comment" />
-      </tbody>
-    </table>
+
     <button :disabled="!pagination.previous" @click="changePage('prev')">Prev</button>
     <button :disabled="!pagination.next" @click="changePage('next')">Next</button>
+
+    <div class="comment-thread">
+      <CommentItem v-for="comment in comments" :key="comment.id" :comment="comment" />
+    </div>
+
+    <CommentForm />
   </div>
 </template>
 
 <script>
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, onUnmounted } from 'vue';
 import { useStore } from 'vuex';
 import CommentItem from './CommentItem.vue';
+import CommentForm from './CommentForm.vue';
 
 export default {
-  components: { CommentItem },
+  components: { CommentItem, CommentForm },
   setup() {
     const store = useStore();
+
     const comments = computed(() => store.state.comments);
     const pagination = computed(() => store.state.pagination);
     const ordering = computed({
@@ -34,15 +38,37 @@ export default {
     });
 
     const WS_BASE = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/comments/';
+    let ws = null;
+
+    const connectWebSocket = () => {
+      ws = new WebSocket(WS_BASE);
+      ws.onopen = () => console.log('WebSocket connected');
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'new_comment') {
+          if (data.comment.parent) {
+            const parent = comments.value.find(c => c.id === data.comment.parent);
+            if (parent) {
+              parent.replies = parent.replies || [];
+              parent.replies.push(data.comment);
+            }
+          } else {
+            store.commit('ADD_COMMENT', data.comment);
+          }
+        }
+      };
+      ws.onclose = () => console.log('WebSocket closed');
+      ws.onerror = (err) => console.error('WebSocket error:', err);
+    };
 
     onMounted(() => {
-  store.dispatch('fetchComments');
+      store.dispatch('fetchComments');
+      connectWebSocket();
+    });
 
-  const ws = new WebSocket(WS_BASE);
-  ws.onmessage = (event) => {
-    console.log('New WS message:', event.data);
-  };
-});
+    onUnmounted(() => {
+      if (ws) ws.close();
+    });
 
     const changePage = (dir) => {
       const current = store.state.currentPage;
@@ -57,3 +83,7 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+.comment-thread { margin-top: 20px; }
+</style>

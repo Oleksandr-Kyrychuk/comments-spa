@@ -18,6 +18,7 @@ services:
       - DJANGO_SETTINGS_MODULE=comments_project.settings
     networks:
       - app-network
+    command: daphne -b 0.0.0.0 -p 8000 comments_project.asgi:application
 
   redis:
     image: redis:latest
