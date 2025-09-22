@@ -1,8 +1,15 @@
 #!/bin/sh
 
-# Чекаємо, поки база даних стане доступною (можна замінити на wait-for-it)
+# Чекаємо, поки база даних стане доступною
 echo "Waiting for database..."
 sleep 5
+
+# Чекаємо, поки Redis стане доступним
+echo "Waiting for Redis..."
+while ! nc -z redis 6379; do
+  echo "Redis is unavailable - sleeping"
+  sleep 1
+done
 
 # Робимо міграції
 echo "Applying Django migrations..."

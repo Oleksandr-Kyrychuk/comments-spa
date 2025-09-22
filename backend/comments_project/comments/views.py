@@ -18,6 +18,25 @@ from django.views.decorators.cache import cache_page
 
 
 logger = logging.getLogger(__name__)
+from rest_framework import viewsets
+from .models import Comment
+from .serializers import CommentSerializer
+from rest_framework.pagination import PageNumberPagination
+
+class CommentPagination(PageNumberPagination):
+    page_size = 25
+
+class CommentViewSet(viewsets.ModelViewSet):
+    serializer_class = CommentSerializer
+    pagination_class = CommentPagination
+
+    def get_queryset(self):
+        # Повертаємо лише кореневі коментарі (parent=null)
+        queryset = Comment.objects.filter(parent__isnull=True).order_by('-created_at')
+        ordering = self.request.query_params.get('ordering')
+        if ordering:
+            queryset = queryset.order_by(ordering)
+        return queryset
 
 
 class CommentListCreateView(generics.ListCreateAPIView):
@@ -31,18 +50,23 @@ class CommentListCreateView(generics.ListCreateAPIView):
     pagination_class = PageNumberPagination
 
     def create(self, request, *args, **kwargs):
+        logger.info(f"Received data: {request.data}")
         serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
+        if serializer.is_valid(raise_exception=True):
+            logger.info(f"Validated data: {serializer.validated_data}")
             save_comment.delay(serializer.validated_data)
-            return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {
+                    "message": "Comment accepted for processing",
+                    "data": serializer.validated_data
+                },
+                status=status.HTTP_202_ACCEPTED
+            )
 
-    @method_decorator(cache_page(60 * 15))  # Кеш на 15 хвилин
+    @method_decorator(cache_page(60 * 15))
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
-class TestCaptchaRefreshView(APIView):
-    def get(self, request):
-        return Response({"message": "CAPTCHA refresh працює!"})
+
 
     
 class PreviewView(APIView):

@@ -1,18 +1,45 @@
 import { createStore } from 'vuex';
 import axios from 'axios';
 
-const API_BASE = 'http://localhost:8000/api/';  // Ваш Django сервер
+const API_BASE = 'http://localhost:8000/api/';
 
 export default createStore({
   state: {
-    comments: [],  // Список кореневих коментарів з replies
+    comments: [],
     pagination: { next: null, previous: null, count: 0 },
     currentPage: 1,
-    ordering: '-created_at',  // Default LIFO
+    ordering: '-created_at',
   },
   mutations: {
     SET_COMMENTS(state, comments) {
-      state.comments = comments;
+      state.comments = comments.map(comment => ({
+        ...comment,
+        replies: comment.replies || []
+      }));
+    },
+    ADD_COMMENT(state, comment) {
+      state.comments.unshift({ ...comment, replies: comment.replies || [] });
+    },
+    ADD_REPLY(state, { parentId, reply }) {
+      // Рекурсивно шукаємо батьківський коментар у каскаді
+      const findAndAddReply = (comments) => {
+        for (let comment of comments) {
+          if (comment.id === parentId) {
+            comment.replies = comment.replies || [];
+            comment.replies.push({ ...reply, replies: reply.replies || [] });
+            return true;
+          }
+          if (comment.replies && findAndAddReply(comment.replies)) {
+            return true;
+          }
+        }
+        return false;
+      };
+
+      if (!findAndAddReply(state.comments)) {
+        // Якщо не знайдено, додаємо як кореневий (резерв)
+        state.comments.unshift({ ...reply, replies: reply.replies || [] });
+      }
     },
     SET_PAGINATION(state, pagination) {
       state.pagination = pagination;
@@ -37,19 +64,8 @@ export default createStore({
         console.error('Error fetching comments:', error);
       }
     },
-    async addComment({ dispatch }, commentData) {
-      try {
-        const formData = new FormData();
-        Object.keys(commentData).forEach(key => formData.append(key, commentData[key]));
-        await axios.post(`${API_BASE}comments/`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        dispatch('fetchComments');  // Оновити список
-      } catch (error) {
-        console.error('Error adding comment:', error);
-      }
+    addComment({ commit }, comment) {
+      commit('ADD_COMMENT', comment);
     },
-    // Підготовка до WebSocket: пізніше додайте action для real-time update, напр. via WebSocket onmessage -> commit
-    // Для junior+: поки polling, напр. setInterval(() => dispatch('fetchComments'), 5000);
   },
 });

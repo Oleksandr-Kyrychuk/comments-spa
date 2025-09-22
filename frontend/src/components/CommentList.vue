@@ -1,4 +1,3 @@
-<!-- CommentList.vue -->
 <template>
   <div>
     <select v-model="ordering" @change="changeOrdering">
@@ -12,7 +11,7 @@
     <button :disabled="!pagination.next" @click="changePage('next')">Next</button>
 
     <div class="comment-thread">
-      <CommentItem v-for="comment in comments" :key="comment.id" :comment="comment" />
+      <CommentItem v-for="comment in comments" :key="comment.id" :comment="comment" @add-reply="handleAddReply" />
     </div>
 
     <CommentForm />
@@ -37,7 +36,7 @@ export default {
       set: (val) => store.commit('SET_ORDERING', val),
     });
 
-    const WS_BASE = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/comments/';
+    const WS_BASE = 'ws://localhost:8000/ws/comments/';
     let ws = null;
 
     const connectWebSocket = () => {
@@ -46,12 +45,12 @@ export default {
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
         if (data.type === 'new_comment') {
+          console.log('New comment received:', data.comment);
           if (data.comment.parent) {
-            const parent = comments.value.find(c => c.id === data.comment.parent);
-            if (parent) {
-              parent.replies = parent.replies || [];
-              parent.replies.push(data.comment);
-            }
+            store.commit('ADD_REPLY', {
+              parentId: data.comment.parent,
+              reply: data.comment,
+            });
           } else {
             store.commit('ADD_COMMENT', data.comment);
           }
@@ -61,8 +60,15 @@ export default {
       ws.onerror = (err) => console.error('WebSocket error:', err);
     };
 
+    const handleAddReply = ({ parentId, reply }) => {
+      // Комітить reply у store
+      store.commit('ADD_REPLY', { parentId, reply });
+    };
+
     onMounted(() => {
-      store.dispatch('fetchComments');
+      store.dispatch('fetchComments').then(() => {
+        console.log('Comments loaded:', store.state.comments);
+      });
       connectWebSocket();
     });
 
@@ -79,7 +85,7 @@ export default {
       store.dispatch('fetchComments');
     };
 
-    return { comments, pagination, ordering, changePage, changeOrdering };
+    return { comments, pagination, ordering, changePage, changeOrdering, handleAddReply };
   },
 };
 </script>
