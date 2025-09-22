@@ -11,16 +11,16 @@
       <div v-if="comment.email">Email: <a :href="'mailto:' + comment.email">{{ comment.email }}</a></div>
       <div v-if="comment.home_page">Home: <a :href="comment.home_page" target="_blank">{{ comment.home_page }}</a></div>
       <div v-if="comment.file">
-        <template v-if="isTextFile">
-          <a :href="mediaUrl + comment.file" download>Download TXT</a>
-        </template>
-        <img
-          v-else
-          :src="mediaUrl + comment.file"
-          @click="openLightbox(mediaUrl + comment.file)"
-          style="max-width:320px; cursor: pointer;"
-        />
-      </div>
+  <template v-if="isTextFile">
+    <a :href="getFileUrl(comment.file)" download>Download TXT</a>
+  </template>
+  <img
+    v-else
+    :src="getFileUrl(comment.file)"
+    @click="openLightbox(getFileUrl(comment.file))"
+    style="max-width:320px; cursor: pointer;"
+  />
+</div>
       <EasyLightbox
         :visible="visible"
         :imgs="[lightboxUrl]"
@@ -50,7 +50,7 @@ export default {
       lightboxUrl.value = url;
       visible.value = true;
     };
-    const isTextFile = computed(() => props.comment.file?.endswith('.txt'));
+    const isTextFile = computed(() => props.comment.file?.endsWith('.txt') || false);
     const avatarUrl = computed(() => `https://www.gravatar.com/avatar/${md5(props.comment.email || '')}?s=40&d=identicon`);
     const formatDate = (dateStr) => new Date(dateStr).toLocaleString();
 

@@ -13,6 +13,7 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+from captcha.views import captcha_refresh
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
@@ -21,6 +22,9 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.middleware.csrf import get_token
 from django.http import HttpResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.csrf import csrf_exempt
+from django.urls import re_path
+from comments.views import TestCaptchaRefreshView
 
 @ensure_csrf_cookie
 def csrf_cookie(request):
@@ -31,6 +35,7 @@ urlpatterns = [
     path('csrf-cookie/', csrf_cookie, name='csrf_cookie'),
     path('api/', include('comments.urls')),
     path('captcha/', include('captcha.urls')),
+    path('captcha/refresh/', captcha_refresh, name='captcha-refresh-get'),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

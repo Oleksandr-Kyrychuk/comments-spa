@@ -1,6 +1,19 @@
 version: '3.8'
 
 services:
+  celery:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: celery -A comments_project worker --loglevel=info
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - redis
+      - django
+    networks:
+      - app-network
+
   django:
     build:
       context: ./backend

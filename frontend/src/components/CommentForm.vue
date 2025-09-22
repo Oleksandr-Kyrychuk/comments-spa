@@ -121,14 +121,22 @@ export default {
     };
 
     const refreshCaptcha = async () => {
-      try {
-        const response = await axios.get(`${API_BASE}/captcha/refresh/`);
-        form.value.captcha_0 = response.data.key;
-        captchaImage.value = `${API_BASE}/captcha/image/${response.data.key}/`;
-      } catch (err) {
-        console.error(err);
+  try {
+    const timestamp = Date.now(); // Для уникнення кешу
+    const response = await axios.get(`${API_BASE}/captcha/refresh/?_=${timestamp}`, {
+      withCredentials: true,
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest'  // Обов'язково для проходження перевірки is_ajax()
       }
-    };
+    });
+    form.value.captcha_0 = response.data.key;
+    captchaImage.value = `${API_BASE}/captcha/image/${response.data.key}/?_=${timestamp}`;
+  } catch (err) {
+    console.error(err);
+    error.value = 'Не вдалося оновити CAPTCHA';
+  }
+};
+
 
     const previewText = async () => {
       try {
