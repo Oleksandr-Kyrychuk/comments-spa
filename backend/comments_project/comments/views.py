@@ -11,16 +11,29 @@ from rest_framework.filters import OrderingFilter
 import bleach
 from rest_framework.response import Response
 from rest_framework import status
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class CommentListCreateView(generics.ListCreateAPIView):
-    queryset = Comment.objects.filter(parent__isnull=True)  # Тільки кореневі коментарі
+    queryset = Comment.objects.filter(parent__isnull=True)
     serializer_class = CommentSerializer
-    permission_classes = [AllowAny]  # JWT для POST
+    permission_classes = [AllowAny]
     authentication_classes = [JWTAuthentication]
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_fields = ['user_name', 'email', 'created_at']
     ordering_fields = ['user_name', 'email', 'created_at']
     pagination_class = PageNumberPagination
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            logger.error(f"Validation errors: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 class PreviewView(APIView):
     permission_classes = [AllowAny]
