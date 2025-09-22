@@ -9,51 +9,29 @@ from captcha.models import CaptchaStore
 
 class CommentSerializer(serializers.ModelSerializer):
     replies = serializers.SerializerMethodField()
-
-    # Додаємо CAPTCHA поля для валідації
-    captcha_0 = serializers.CharField(write_only=True)
-    captcha_1 = serializers.CharField(write_only=True)
+    captcha_0 = serializers.CharField(write_only=True, required=False)  # Додаємо required=False
+    captcha_1 = serializers.CharField(write_only=True, required=False)  # Додаємо required=False
 
     def get_replies(self, obj):
-        return []
+        # Рекурсивно серіалізуємо дочірні коментарі
+        children = Comment.objects.filter(parent=obj).order_by('created_at')
+        return CommentSerializer(children, many=True).data
 
-    # def validate(self, data):
-    #     # Валідація та очищення тексту
-    #     ALLOWED_TAGS = ['a', 'code', 'i', 'strong']
-    #     ALLOWED_ATTRIBUTES = {'a': ['href', 'title']}
-    #     data['text'] = bleach.clean(data['text'], tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES)
-    #
-    #     # Перетворюємо пустий рядок parent на None
-    #     if data.get('parent') == '':
-    #         data['parent'] = None
-    #
-    #     # Валідація CAPTCHA
-    #     key = data.get('captcha_0')
-    #     value = data.get('captcha_1')
-    #     if key and value:
-    #         try:
-    #             captcha = CaptchaStore.objects.get(hashkey=key)
-    #             if captcha.response.lower() != value.lower():
-    #                 raise serializers.ValidationError({"captcha": "Invalid CAPTCHA"})
-    #         except CaptchaStore.DoesNotExist:
-    #             raise serializers.ValidationError({"captcha": "Invalid CAPTCHA"})
-    #     return data
-
-    # тимчасово для тесту
     def validate(self, data):
         ALLOWED_TAGS = ['a', 'code', 'i', 'strong']
         ALLOWED_ATTRIBUTES = {'a': ['href', 'title']}
         data['text'] = bleach.clean(data['text'], tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES)
+        if data.get('parent') == '':
+            data['parent'] = None
 
-        # Валідація CAPTCHA
+        # Валідація CAPTCHA тільки якщо поля надіслані
         key = data.pop('captcha_0', None)
         value = data.pop('captcha_1', None)
-        if key and value:
+        if key and value:  # Перевіряємо CAPTCHA, тільки якщо обидва поля є
             try:
                 captcha = CaptchaStore.objects.get(hashkey=key)
                 if captcha.response.lower() != value.lower():
                     raise serializers.ValidationError({"captcha": "Invalid CAPTCHA"})
-                # видаляємо використаний Captcha
                 captcha.delete()
             except CaptchaStore.DoesNotExist:
                 raise serializers.ValidationError({"captcha": "Invalid CAPTCHA"})
@@ -79,14 +57,19 @@ class CommentSerializer(serializers.ModelSerializer):
         else:
             raise ValidationError("Only JPG, GIF, PNG or TXT allowed")
 
-    # def create(self, validated_data):
-    #     # Видаляємо поля CAPTCHA перед створенням об'єкта
-    #     validated_data.pop('captcha_0', None)
-    #     validated_data.pop('captcha_1', None)
-    #     return super().create(validated_data)
     def create(self, validated_data):
-        return super().create(validated_data)
+        instance = super().create(validated_data)
+        if instance.file:
+            # Зберігаємо відносний шлях
+            instance.file = instance.file.name
+            instance.save()
+        return instance
 
     class Meta:
         model = Comment
         fields = ['user_name', 'email', 'home_page', 'text', 'parent', 'file', 'created_at', 'replies', 'captcha_0', 'captcha_1']
+        read_only_fields = ['created_at', 'replies']
+        extra_kwargs = {
+            'captcha_0': {'write_only': True},
+            'captcha_1': {'write_only': True},
+        }

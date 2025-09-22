@@ -1,7 +1,7 @@
-<!-- CommentForm.vue -->
 <template>
   <div class="form-container">
     <form @submit.prevent="submitForm">
+      <!-- Username -->
       <div class="form-group">
         <label>Username</label>
         <input
@@ -13,6 +13,7 @@
         />
       </div>
 
+      <!-- Email -->
       <div class="form-group">
         <label>Email</label>
         <input
@@ -24,6 +25,7 @@
         />
       </div>
 
+      <!-- Home Page -->
       <div class="form-group">
         <label>Home Page (optional)</label>
         <input
@@ -34,6 +36,7 @@
         />
       </div>
 
+      <!-- Comment -->
       <div class="form-group">
         <label>Comment</label>
         <div class="tag-panel">
@@ -51,24 +54,28 @@
         ></textarea>
       </div>
 
-      <div class="form-group">
+      <!-- Parent Comment -->
+      <div class="form-group" v-if="!localParentId">
         <label>Parent Comment (optional)</label>
         <select v-model="form.parent" class="form-control">
           <option value="">No parent</option>
+          <option v-for="comment in parentComments" :key="comment.id" :value="comment.id">
+            {{ comment.user_name }} ({{ formatDate(comment.created_at) }})
+          </option>
         </select>
       </div>
 
+      <!-- File Upload -->
       <div class="form-group">
         <label>Upload File (JPG/GIF/PNG or TXT)</label>
         <input type="file" @change="handleFile" class="form-control" />
       </div>
 
+      <!-- CAPTCHA -->
       <div class="form-group">
         <label>CAPTCHA</label>
         <img :src="captchaImage" alt="CAPTCHA" class="captcha-image" />
-        <button type="button" @click="refreshCaptcha" class="btn btn-secondary">
-          Refresh CAPTCHA
-        </button>
+        <button type="button" @click="refreshCaptcha" class="btn btn-secondary">Refresh CAPTCHA</button>
         <input
           v-model="form.captcha_1"
           placeholder="Enter CAPTCHA code"
@@ -77,11 +84,13 @@
         />
       </div>
 
+      <!-- Preview -->
       <div class="form-group">
         <button type="button" @click="previewText" class="btn btn-info">Preview</button>
         <div v-if="preview" class="preview-box" v-html="preview"></div>
       </div>
 
+      <!-- Submit -->
       <div class="form-group">
         <p v-if="error" class="error">{{ error }}</p>
         <button type="submit" class="btn btn-primary">Submit</button>
@@ -92,21 +101,23 @@
 
 <script>
 import axios from 'axios';
-import { ref } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { useStore } from 'vuex';
 
-const API_BASE = 'http://localhost:8000';
-axios.defaults.withCredentials = true;
-
 export default {
-  setup() {
+  props: {
+    parentId: { type: [String, Number], default: null }
+  },
+  emits: ['submitted'],
+  setup(props, { emit }) {
     const store = useStore();
+    const localParentId = ref(props.parentId);
     const form = ref({
       user_name: '',
       email: '',
       home_page: '',
       text: '',
-      parent: '',
+      parent: props.parentId || null,
       file: null,
       captcha_0: '',
       captcha_1: ''
@@ -114,36 +125,67 @@ export default {
     const captchaImage = ref('');
     const preview = ref('');
     const error = ref('');
+    const parentComments = ref([]);
+    const API_BASE = 'http://localhost:8000';
+    let socket = null;
+
+    // Sync parentId with local state
+    watch(() => props.parentId, (newVal) => {
+      localParentId.value = newVal;
+      form.value.parent = newVal || null;
+    });
 
     const getCsrfToken = async () => {
-      await axios.get(`${API_BASE}/csrf-cookie/`);
-      return axios.defaults.headers.common['X-CSRFToken'];
+      try {
+        await axios.get(`${API_BASE}/csrf-cookie/`, { withCredentials: true });
+        const cookie = document.cookie.split('; ').find(row => row.startsWith('csrftoken'))?.split('=')[1];
+        return cookie || null;
+      } catch (err) {
+        error.value = 'Failed to retrieve CSRF token';
+        console.error('CSRF Token Error:', err);
+        return null;
+      }
     };
 
     const refreshCaptcha = async () => {
-  try {
-    const timestamp = Date.now(); // Для уникнення кешу
-    const response = await axios.get(`${API_BASE}/captcha/refresh/?_=${timestamp}`, {
-      withCredentials: true,
-      headers: {
-        'X-Requested-With': 'XMLHttpRequest'  // Обов'язково для проходження перевірки is_ajax()
+      try {
+        const timestamp = Date.now();
+        const { data } = await axios.get(`${API_BASE}/captcha/refresh/?_=${timestamp}`, {
+          withCredentials: true,
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        form.value.captcha_0 = data.key;
+        captchaImage.value = `${API_BASE}/captcha/image/${data.key}/?_=${timestamp}`;
+      } catch (err) {
+        error.value = 'Failed to refresh CAPTCHA';
+        console.error('Captcha Error:', err);
       }
-    });
-    form.value.captcha_0 = response.data.key;
-    captchaImage.value = `${API_BASE}/captcha/image/${response.data.key}/?_=${timestamp}`;
-  } catch (err) {
-    console.error(err);
-    error.value = 'Не вдалося оновити CAPTCHA';
-  }
-};
+    };
 
+    const connectWebSocket = () => {
+      socket = new WebSocket('ws://localhost:8000/ws/comments/');
+      socket.onopen = () => console.log('WebSocket connected');
+      socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'new_comment') {
+          if (data.comment.parent) {
+            store.commit('ADD_REPLY', { parentId: data.comment.parent, reply: data.comment });
+          } else {
+            store.commit('ADD_COMMENT', data.comment);
+          }
+        }
+      };
+      socket.onclose = () => console.log('WebSocket disconnected');
+      socket.onerror = (err) => console.error('WebSocket error:', err);
+    };
 
     const previewText = async () => {
       try {
-        const response = await axios.post(`${API_BASE}/api/preview/`, { text: form.value.text });
-        preview.value = response.data.preview;
+        const { data } = await axios.post(`${API_BASE}/api/preview/`, { text: form.value.text });
+        preview.value = data.preview;
       } catch (err) {
-        console.error(err);
+        error.value = 'Failed to fetch preview';
+        console.error('Preview Error:', err);
       }
     };
 
@@ -153,7 +195,7 @@ export default {
 
       const validTypes = ['image/jpeg', 'image/gif', 'image/png', 'text/plain'];
       if (!validTypes.includes(file.type)) {
-        error.value = 'Неправильний тип файлу. Використовуйте JPG, GIF, PNG або TXT.';
+        error.value = 'Invalid file type. Use JPG, GIF, PNG, or TXT.';
         return;
       }
 
@@ -163,7 +205,7 @@ export default {
       }
 
       if (file.size > 5 * 1024 * 1024) {
-        error.value = 'Розмір файлу має бути ≤ 5MB';
+        error.value = 'File size must be <= 5MB';
         return;
       }
 
@@ -171,31 +213,51 @@ export default {
     };
 
     const submitForm = async () => {
-      try {
-        error.value = '';
-        const csrftoken = await getCsrfToken();
-        const formData = new FormData();
-        Object.keys(form.value).forEach(key => {
-          const value = form.value[key];
-          if (key === 'file' && value instanceof File) {
-            formData.append(key, value);
-          } else {
-            formData.append(key, value || '');
-          }
-        });
+      error.value = '';
+      if (!form.value.captcha_1) {
+        error.value = 'Please enter CAPTCHA';
+        return;
+      }
 
-        const response = await axios.post(`${API_BASE}/api/comments/`, formData, {
+      const csrftoken = await getCsrfToken();
+      if (!csrftoken) return;
+
+      const formData = new FormData();
+      Object.keys(form.value).forEach(key => {
+        const value = form.value[key];
+        if (key === 'file' && value instanceof File) {
+          formData.append(key, value);
+        } else if (key === 'parent' && value) {
+          formData.append(key, value);
+        } else if (value && key !== 'parent') {
+          formData.append(key, value);
+        }
+      });
+
+      try {
+        await axios.post(`${API_BASE}/api/comments/`, formData, {
           headers: { 'X-CSRFToken': csrftoken, 'X-Requested-With': 'XMLHttpRequest' },
           withCredentials: true,
         });
 
-        store.dispatch('addComment', response.data);
-        form.value = { user_name: '', email: '', home_page: '', text: '', parent: '', file: null, captcha_0: '', captcha_1: '' };
+        // Reset form after successful submission
+        Object.assign(form.value, {
+          user_name: '',
+          email: '',
+          home_page: '',
+          text: '',
+          parent: localParentId.value || null,
+          file: null,
+          captcha_0: '',
+          captcha_1: ''
+        });
         preview.value = '';
         await refreshCaptcha();
+
+        emit('submitted', { ...form.value, parentId: localParentId.value });
       } catch (err) {
-        error.value = JSON.stringify(err.response?.data, null, 2) || 'Не вдалося відправити коментар';
-        console.error('Full server error:', err.response?.data);
+        error.value = JSON.stringify(err.response?.data) || 'Failed to submit comment';
+        console.error('Submit Error:', err);
       }
     };
 
@@ -204,46 +266,61 @@ export default {
       form.value.text += `<${tag}>Your text here</${tag}>`;
       setTimeout(() => {
         const textarea = document.querySelector('textarea');
-        textarea.focus();
-        textarea.setSelectionRange(cursorPos + 2, cursorPos + 12);
+        if (textarea) {
+          textarea.focus();
+          textarea.setSelectionRange(cursorPos + 2, cursorPos + 12);
+        }
       }, 0);
     };
 
-    const init = async () => {
-      try {
-        await getCsrfToken();
-        await refreshCaptcha();
-      } catch (err) {
-        console.error(err);
-        error.value = 'Не вдалося ініціалізувати CSRF або CAPTCHA';
+    const fetchParentComments = async () => {
+      if (!localParentId.value) {
+        try {
+          const { data } = await axios.get(`${API_BASE}/comments/?ordering=-created_at`);
+          parentComments.value = data.results.filter(c => !c.parent);
+        } catch (err) {
+          console.error('Error fetching parent comments:', err);
+        }
       }
     };
 
-    init();
+    const formatDate = (date) => new Date(date).toLocaleString();
 
-    return { form, captchaImage, preview, error, refreshCaptcha, previewText, handleFile, submitForm, insertTag };
+    onMounted(() => {
+      refreshCaptcha();
+      connectWebSocket();
+      fetchParentComments();
+    });
+
+    onUnmounted(() => {
+      if (socket) socket.close();
+    });
+
+    return {
+      form,
+      captchaImage,
+      preview,
+      error,
+      refreshCaptcha,
+      previewText,
+      handleFile,
+      submitForm,
+      insertTag,
+      parentComments,
+      formatDate,
+      localParentId
+    };
   }
 };
 </script>
 
 <style scoped>
-.form-container {
-  max-width: 600px;
-  margin: 20px auto;
-  padding: 20px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-}
-
+.form-container { padding: 20px; }
 .form-group { margin-bottom: 15px; }
-.form-control { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-.captcha-image { display: block; margin: 10px 0; width: 350px; height: auto; image-rendering: crisp-edges; border: 1px solid #ddd; }
-.preview-box { margin-top: 10px; padding: 10px; border: 1px solid #ddd; background: #f9f9f9; }
-.error { color: red; margin-bottom: 10px; }
-.btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; }
-.btn-primary { background: #007bff; color: white; }
-.btn-secondary { background: #6c757d; color: white; }
-.btn-info { background: #17a2b8; color: white; }
-.tag-panel { margin-bottom: 10px; }
-.tag-panel .btn { margin-right: 5px; font-size: 0.9em; padding: 4px 8px; }
+.form-control { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+.tag-panel { margin-bottom: 5px; }
+.btn { padding: 5px 10px; margin-right: 5px; }
+.error { color: red; }
+.preview-box { border: 1px solid #ddd; padding: 10px; margin-top: 10px; }
+.captcha-image { max-width: 200px; margin-bottom: 10px; }
 </style>

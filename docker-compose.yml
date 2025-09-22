@@ -10,7 +10,6 @@ services:
       - ./backend:/app
     depends_on:
       - redis
-      - django
     networks:
       - app-network
 
