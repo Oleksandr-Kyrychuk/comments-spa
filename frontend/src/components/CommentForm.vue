@@ -82,6 +82,7 @@
           required
           class="form-control"
         />
+        <input v-model="form.captcha_0" type="hidden" />
       </div>
 
       <!-- Preview -->
@@ -104,9 +105,15 @@ import axios from 'axios';
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { useStore } from 'vuex';
 
+// Визначаємо базові URL-адреси для роботи через Nginx або локально
+const API_BASE = process.env.VUE_APP_API_BASE || '/api';
+const WS_BASE = process.env.VUE_APP_WS_BASE || 'ws://localhost:8080/ws/comments/';
+const CAPTCHA_URL = process.env.VUE_APP_CAPTCHA_URL || '/captcha/refresh/';
+const CSRF_URL = process.env.VUE_APP_CSRF_URL || '/csrf-cookie/';
+
 export default {
   props: {
-    parentId: { type: [String, Number], default: null }
+    parentId: { type: [String, Number], default: null },
   },
   emits: ['submitted'],
   setup(props, { emit }) {
@@ -120,13 +127,12 @@ export default {
       parent: props.parentId || null,
       file: null,
       captcha_0: '',
-      captcha_1: ''
+      captcha_1: '',
     });
     const captchaImage = ref('');
     const preview = ref('');
     const error = ref('');
     const parentComments = ref([]);
-    const API_BASE = 'http://localhost:8000';
     let socket = null;
 
     // Sync parentId with local state
@@ -137,7 +143,7 @@ export default {
 
     const getCsrfToken = async () => {
       try {
-        await axios.get(`${API_BASE}/csrf-cookie/`, { withCredentials: true });
+        await axios.get(CSRF_URL, { withCredentials: true });
         const cookie = document.cookie.split('; ').find(row => row.startsWith('csrftoken'))?.split('=')[1];
         return cookie || null;
       } catch (err) {
@@ -150,12 +156,12 @@ export default {
     const refreshCaptcha = async () => {
       try {
         const timestamp = Date.now();
-        const { data } = await axios.get(`${API_BASE}/captcha/refresh/?_=${timestamp}`, {
+        const { data } = await axios.get(`${CAPTCHA_URL}?_=${timestamp}`, {
           withCredentials: true,
-          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
         });
         form.value.captcha_0 = data.key;
-        captchaImage.value = `${API_BASE}/captcha/image/${data.key}/?_=${timestamp}`;
+        captchaImage.value = `${API_BASE}/../captcha/image/${data.key}/?_=${timestamp}`;
       } catch (err) {
         error.value = 'Failed to refresh CAPTCHA';
         console.error('Captcha Error:', err);
@@ -163,7 +169,7 @@ export default {
     };
 
     const connectWebSocket = () => {
-      socket = new WebSocket('ws://localhost:8000/ws/comments/');
+      socket = new WebSocket(WS_BASE);
       socket.onopen = () => console.log('WebSocket connected');
       socket.onmessage = (event) => {
         const data = JSON.parse(event.data);
@@ -181,7 +187,9 @@ export default {
 
     const previewText = async () => {
       try {
-        const { data } = await axios.post(`${API_BASE}/api/preview/`, { text: form.value.text });
+        const { data } = await axios.post(`${API_BASE}/preview/`, { text: form.value.text }, {
+          withCredentials: true,
+        });
         preview.value = data.preview;
       } catch (err) {
         error.value = 'Failed to fetch preview';
@@ -199,7 +207,7 @@ export default {
         return;
       }
 
-      if (file.size > 100 * 1024 && file.type === 'text/plain') {
+      if (file.type === 'text/plain' && file.size > 100 * 1024) {
         error.value = 'TXT file must be <= 100KB';
         return;
       }
@@ -212,54 +220,125 @@ export default {
       form.value.file = file;
     };
 
+
+
     const submitForm = async () => {
-      error.value = '';
-      if (!form.value.captcha_1) {
-        error.value = 'Please enter CAPTCHA';
-        return;
-      }
+  error.value = '';
+  if (!form.value.captcha_1) {
+    error.value = 'Please enter CAPTCHA';
+    return;
+  }
 
-      const csrftoken = await getCsrfToken();
-      if (!csrftoken) return;
+  const csrftoken = await getCsrfToken();
+  if (!csrftoken) return;
 
-      const formData = new FormData();
-      Object.keys(form.value).forEach(key => {
-        const value = form.value[key];
-        if (key === 'file' && value instanceof File) {
-          formData.append(key, value);
-        } else if (key === 'parent' && value) {
-          formData.append(key, value);
-        } else if (value && key !== 'parent') {
-          formData.append(key, value);
-        }
+  const payload = {
+    user: {
+      username: form.value.user_name,
+      email: form.value.email,
+      homepage: form.value.home_page || '',
+    },
+    text: form.value.text,
+    parent: form.value.parent || null,
+    captcha_0: form.value.captcha_0,
+    captcha_1: form.value.captcha_1,
+  };
+
+  // If a file is present, use FormData for file upload
+  if (form.value.file instanceof File) {
+    const formData = new FormData();
+    formData.append('user', JSON.stringify(payload.user));
+    formData.append('text', payload.text);
+    if (payload.parent) formData.append('parent', payload.parent);
+    formData.append('file', form.value.file);
+    formData.append('captcha_0', payload.captcha_0);
+    formData.append('captcha_1', payload.captcha_1);
+
+    try {
+      const response = await axios.post(`${API_BASE}/comments/`, formData, {
+        headers: {
+          'X-CSRFToken': csrftoken,
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        withCredentials: true,
       });
 
-      try {
-        await axios.post(`${API_BASE}/api/comments/`, formData, {
-          headers: { 'X-CSRFToken': csrftoken, 'X-Requested-With': 'XMLHttpRequest' },
-          withCredentials: true,
-        });
+      // Форматуємо коментар для відповідності структурі CommentItem
+      const newComment = {
+        id: null, // ID прийде через WebSocket
+        user: response.data.data.user, // Використовуємо user із response.data.data
+        text: response.data.data.text,
+        parent: response.data.data.parent,
+        file: form.value.file ? URL.createObjectURL(form.value.file) : null,
+        created_at: new Date().toISOString(),
+        replies: [],
+      };
 
-        // Reset form after successful submission
-        Object.assign(form.value, {
-          user_name: '',
-          email: '',
-          home_page: '',
-          text: '',
-          parent: localParentId.value || null,
-          file: null,
-          captcha_0: '',
-          captcha_1: ''
-        });
-        preview.value = '';
-        await refreshCaptcha();
+      // Очищення форми
+      Object.assign(form.value, {
+        user_name: '',
+        email: '',
+        home_page: '',
+        text: '',
+        parent: localParentId.value || null,
+        file: null,
+        captcha_0: '',
+        captcha_1: '',
+      });
+      preview.value = '';
+      await refreshCaptcha();
 
-        emit('submitted', { ...form.value, parentId: localParentId.value });
-      } catch (err) {
-        error.value = JSON.stringify(err.response?.data) || 'Failed to submit comment';
-        console.error('Submit Error:', err);
-      }
-    };
+      emit('submitted', { ...form.value, parentId: localParentId.value, comment: newComment });
+    } catch (err) {
+      error.value = JSON.stringify(err.response?.data) || 'Failed to submit comment';
+      console.error('Submit Error:', err);
+    }
+  } else {
+    // Send as JSON if no file
+    try {
+      const response = await axios.post(`${API_BASE}/comments/`, payload, {
+        headers: {
+          'X-CSRFToken': csrftoken,
+          'X-Requested-With': 'XMLHttpRequest',
+          'Content-Type': 'application/json',
+        },
+        withCredentials: true,
+      });
+
+      // Форматуємо коментар для відповідності структурі CommentItem
+      const newComment = {
+        id: null, // ID прийде через WebSocket
+        user: response.data.data.user, // Використовуємо user із response.data.data
+        text: response.data.data.text,
+        parent: response.data.data.parent,
+        file: null,
+        created_at: new Date().toISOString(),
+        replies: [],
+      };
+
+      // Очищення форми
+      Object.assign(form.value, {
+        user_name: '',
+        email: '',
+        home_page: '',
+        text: '',
+        parent: localParentId.value || null,
+        file: null,
+        captcha_0: '',
+        captcha_1: '',
+      });
+      preview.value = '';
+      await refreshCaptcha();
+
+      emit('submitted', { ...form.value, parentId: localParentId.value, comment: newComment });
+    } catch (err) {
+      error.value = JSON.stringify(err.response?.data) || 'Failed to submit comment';
+      console.error('Submit Error:', err);
+    }
+  }
+};
+
+
 
     const insertTag = (tag) => {
       const cursorPos = form.value.text.length;
@@ -274,15 +353,17 @@ export default {
     };
 
     const fetchParentComments = async () => {
-      if (!localParentId.value) {
-        try {
-          const { data } = await axios.get(`${API_BASE}/comments/?ordering=-created_at`);
-          parentComments.value = data.results.filter(c => !c.parent);
-        } catch (err) {
-          console.error('Error fetching parent comments:', err);
-        }
-      }
-    };
+  if (!localParentId.value) {
+    try {
+      const { data } = await axios.get(`${API_BASE}/comments/?ordering=-created_at`, {
+        withCredentials: true,
+      });
+      parentComments.value = data.results.filter(c => !c.parent);
+    } catch (err) {
+      console.error('Error fetching parent comments:', err);
+    }
+  }
+};
 
     const formatDate = (date) => new Date(date).toLocaleString();
 
@@ -308,9 +389,9 @@ export default {
       insertTag,
       parentComments,
       formatDate,
-      localParentId
+      localParentId,
     };
-  }
+  },
 };
 </script>
 

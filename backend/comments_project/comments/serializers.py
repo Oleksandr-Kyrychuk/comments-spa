@@ -13,6 +13,20 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['username', 'email', 'homepage']
 
+    def create(self, validated_data):
+        username = validated_data.get('username')
+        email = validated_data.get('email')
+        # Спробувати знайти користувача за username і email
+        try:
+            user = User.objects.get(username=username, email=email)
+        except User.DoesNotExist:
+            user = User.objects.create(
+                username=username,
+                email=email,
+                homepage=validated_data.get('homepage', '')
+            )
+        return user
+
 class CommentSerializer(serializers.ModelSerializer):
     user = UserSerializer()
     replies = serializers.SerializerMethodField()
@@ -20,7 +34,6 @@ class CommentSerializer(serializers.ModelSerializer):
     captcha_1 = serializers.CharField(write_only=True, required=False)
 
     def get_replies(self, obj):
-        # Оптимізована рекурсія з обмеженням глибини
         def serialize_replies(comment, depth=0, max_depth=5):
             if depth >= max_depth:
                 return []
@@ -29,20 +42,31 @@ class CommentSerializer(serializers.ModelSerializer):
             return serializer.data
         return serialize_replies(obj)
 
+    def to_internal_value(self, data):
+        # Handle JSON user data
+        if isinstance(data.get('user'), str):
+            try:
+                data['user'] = json.loads(data['user'])
+            except json.JSONDecodeError:
+                raise serializers.ValidationError({"user": "Invalid JSON"})
+        return super().to_internal_value(data)
+
     def validate(self, data):
+        # HTML cleaning
         ALLOWED_TAGS = ['a', 'code', 'i', 'strong']
         ALLOWED_ATTRIBUTES = {'a': ['href', 'title']}
         data['text'] = bleach.clean(data['text'], tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES)
 
-        # Валідація закритих HTML тегів
+        # Validate HTML tags
         html_pattern = r'^(?:(?!<[^>]+>\s*<\w+\b[^>]*>).)*$'
         if not re.match(html_pattern, data['text']):
             raise serializers.ValidationError({"text": "Invalid HTML: unbalanced tags"})
 
+        # Parent
         if data.get('parent') == '':
             data['parent'] = None
 
-        # Валідація CAPTCHA
+        # CAPTCHA
         key = data.pop('captcha_0', None)
         value = data.pop('captcha_1', None)
         if key and value:
@@ -54,7 +78,7 @@ class CommentSerializer(serializers.ModelSerializer):
             except CaptchaStore.DoesNotExist:
                 raise serializers.ValidationError({"captcha": "Invalid CAPTCHA"})
 
-        # Валідація файлу
+        # File
         if 'file' in data and data['file']:
             data['file'] = self.validate_file(data['file'])
 
@@ -82,9 +106,9 @@ class CommentSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user_data = validated_data.pop('user')
-        user, created = User.objects.get_or_create(
+        user, created = User.objects.update_or_create(
             username=user_data['username'],
-            defaults={'email': user_data['email'], 'homepage': user_data.get('homepage')}
+            defaults={'email': user_data['email'], 'homepage': user_data.get('homepage', '')}
         )
         validated_data['user'] = user
         instance = super().create(validated_data)

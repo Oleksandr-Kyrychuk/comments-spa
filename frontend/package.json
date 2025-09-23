@@ -8,6 +8,7 @@
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
+    "vuex-persistedstate": "^4.1.0",
     "@vueuse/core": "^13.9.0",
     "axios": "^1.11.0",
     "core-js": "^3.8.3",

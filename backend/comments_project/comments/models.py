@@ -4,14 +4,14 @@ from django.utils import timezone
 
 class User(models.Model):
     username = models.CharField(
-        max_length=50, unique=True,
+        max_length=50,
         validators=[RegexValidator(r'^[a-zA-Z0-9]+$', 'Only letters and digits allowed')],
         help_text='Letters and digits only (required)'
     )
-    email = models.EmailField(unique=True, validators=[EmailValidator()], help_text='Valid email format (required)')
+    email = models.EmailField(validators=[EmailValidator()], help_text='Valid email format (required)')
     homepage = models.URLField(blank=True, null=True, validators=[URLValidator()], help_text='Valid URL (optional)')
     created_at = models.DateTimeField(auto_now_add=True)
-    ip_address = models.GenericIPAddressField(null=True, blank=True, help_text='User IP address (optional)')
+    # ip_address = models.GenericIPAddressField(null=True, blank=True, help_text='User IP address (optional)')
 
     def __str__(self):
         return self.username

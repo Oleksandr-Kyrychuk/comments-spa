@@ -62,7 +62,7 @@ class CommentListCreateView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         logger.info(f"Received data: {request.data}")
         serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid(raise_exception=True):
+        if serializer.is_valid():
             logger.info(f"Validated data: {serializer.validated_data}")
             save_comment.delay(serializer.validated_data)
             return Response(
@@ -72,6 +72,9 @@ class CommentListCreateView(generics.ListCreateAPIView):
                 },
                 status=status.HTTP_202_ACCEPTED
             )
+        else:
+            logger.error(f"Serializer errors: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @method_decorator(cache_page(60 * 15))
     def list(self, request, *args, **kwargs):

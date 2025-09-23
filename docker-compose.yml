@@ -18,6 +18,8 @@ services:
       - DB_PASSWORD=user_password
       - DJANGO_SETTINGS_MODULE=comments_project.settings
       - PYTHONPATH=/app/comments_project
+      - DATABASE_URL=postgres://user:user_password@postgres:5432/comments_db
+      - REDIS_URL=redis://redis:6379/0
     depends_on:
       redis:
         condition: service_healthy
@@ -28,7 +30,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 60s  # Збільшено до 60 секунд
+      start_period: 60s
     networks:
       - app-network
 
@@ -48,6 +50,8 @@ services:
       - DB_PASSWORD=user_password
       - DJANGO_SETTINGS_MODULE=comments_project.settings
       - PYTHONPATH=/app/comments_project
+      - DATABASE_URL=postgres://user:user_password@postgres:5432/comments_db
+      - REDIS_URL=redis://redis:6379/0
     depends_on:
       redis:
         condition: service_healthy
