@@ -1,5 +1,5 @@
 from celery import shared_task
-from .models import Comment
+from .models import Comment, User
 from .serializers import CommentSerializer
 import logging
 
@@ -8,6 +8,12 @@ logger = logging.getLogger(__name__)
 @shared_task
 def save_comment(data):
     logger.info(f"Task received data: {data}")
+    user_data = data.pop('user')
+    user, _ = User.objects.get_or_create(
+        username=user_data['username'],
+        defaults={'email': user_data['email'], 'homepage': user_data.get('homepage')}
+    )
+    data['user'] = user
     serializer = CommentSerializer(data=data)
     if serializer.is_valid():
         instance = serializer.save()

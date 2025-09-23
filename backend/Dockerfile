@@ -1,15 +1,33 @@
 FROM python:3.11-slim
 
-WORKDIR /app/comments_project
+WORKDIR /app
+
+# Встановлення залежностей для MySQL, PostgreSQL, redis-cli та curl
+RUN apt-get update && apt-get install -y \
+    default-libmysqlclient-dev \
+    build-essential \
+    postgresql-client \
+    redis-tools \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
+
+# Встановлення залежностей Python
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install daphne
 
 COPY . .
 
-# Додаємо права на запуск entrypoint
-RUN chmod +x /app/comments_project/entrypoint.sh
+# Створюємо непрівільованого користувача
+RUN useradd -m -u 1000 appuser
 
-# Використовуємо entrypoint для запуску міграцій та сервера
-CMD ["/app/comments_project/entrypoint.sh"]
+# Додаємо права на запуск entrypoint
+RUN chmod +x /app/entrypoint-django.sh
+RUN chmod +x /app/entrypoint-celery.sh
+
+# Змінюємо власника файлів
+RUN chown -R appuser:appuser /app
+
+# Перемикаємося на непрівільованого користувача
+USER appuser

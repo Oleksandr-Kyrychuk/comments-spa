@@ -6,28 +6,46 @@ from django.core.files.base import ContentFile
 from io import BytesIO
 from django.core.exceptions import ValidationError
 from captcha.models import CaptchaStore
+import re
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'homepage']
 
 class CommentSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
     replies = serializers.SerializerMethodField()
-    captcha_0 = serializers.CharField(write_only=True, required=False)  # Додаємо required=False
-    captcha_1 = serializers.CharField(write_only=True, required=False)  # Додаємо required=False
+    captcha_0 = serializers.CharField(write_only=True, required=False)
+    captcha_1 = serializers.CharField(write_only=True, required=False)
 
     def get_replies(self, obj):
-        # Рекурсивно серіалізуємо дочірні коментарі
-        children = Comment.objects.filter(parent=obj).order_by('created_at')
-        return CommentSerializer(children, many=True).data
+        # Оптимізована рекурсія з обмеженням глибини
+        def serialize_replies(comment, depth=0, max_depth=5):
+            if depth >= max_depth:
+                return []
+            children = Comment.objects.filter(parent=comment).order_by('created_at')
+            serializer = CommentSerializer(children, many=True, context=self.context)
+            return serializer.data
+        return serialize_replies(obj)
 
     def validate(self, data):
         ALLOWED_TAGS = ['a', 'code', 'i', 'strong']
         ALLOWED_ATTRIBUTES = {'a': ['href', 'title']}
         data['text'] = bleach.clean(data['text'], tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES)
+
+        # Валідація закритих HTML тегів
+        html_pattern = r'^(?:(?!<[^>]+>\s*<\w+\b[^>]*>).)*$'
+        if not re.match(html_pattern, data['text']):
+            raise serializers.ValidationError({"text": "Invalid HTML: unbalanced tags"})
+
         if data.get('parent') == '':
             data['parent'] = None
 
-        # Валідація CAPTCHA тільки якщо поля надіслані
+        # Валідація CAPTCHA
         key = data.pop('captcha_0', None)
         value = data.pop('captcha_1', None)
-        if key and value:  # Перевіряємо CAPTCHA, тільки якщо обидва поля є
+        if key and value:
             try:
                 captcha = CaptchaStore.objects.get(hashkey=key)
                 if captcha.response.lower() != value.lower():
@@ -35,6 +53,11 @@ class CommentSerializer(serializers.ModelSerializer):
                 captcha.delete()
             except CaptchaStore.DoesNotExist:
                 raise serializers.ValidationError({"captcha": "Invalid CAPTCHA"})
+
+        # Валідація файлу
+        if 'file' in data and data['file']:
+            data['file'] = self.validate_file(data['file'])
+
         return data
 
     def validate_file(self, value):
@@ -58,16 +81,21 @@ class CommentSerializer(serializers.ModelSerializer):
             raise ValidationError("Only JPG, GIF, PNG or TXT allowed")
 
     def create(self, validated_data):
+        user_data = validated_data.pop('user')
+        user, created = User.objects.get_or_create(
+            username=user_data['username'],
+            defaults={'email': user_data['email'], 'homepage': user_data.get('homepage')}
+        )
+        validated_data['user'] = user
         instance = super().create(validated_data)
         if instance.file:
-            # Зберігаємо відносний шлях
             instance.file = instance.file.name
             instance.save()
         return instance
 
     class Meta:
         model = Comment
-        fields = ['user_name', 'email', 'home_page', 'text', 'parent', 'file', 'created_at', 'replies', 'captcha_0', 'captcha_1']
+        fields = ['id', 'user', 'text', 'parent', 'file', 'created_at', 'replies', 'captcha_0', 'captcha_1']
         read_only_fields = ['created_at', 'replies']
         extra_kwargs = {
             'captcha_0': {'write_only': True},

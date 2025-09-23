@@ -11,26 +11,26 @@ class User(models.Model):
     email = models.EmailField(unique=True, validators=[EmailValidator()], help_text='Valid email format (required)')
     homepage = models.URLField(blank=True, null=True, validators=[URLValidator()], help_text='Valid URL (optional)')
     created_at = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True, help_text='User IP address (optional)')
 
     def __str__(self):
         return self.username
 
     def get_comments(self):
-        """OOP метод: усі коментарі користувача"""
         return self.comments.all()
 
     class Meta:
         ordering = ['username']
         db_table = 'users'
+        indexes = [
+            models.Index(fields=['username', 'email']),
+        ]
 
 class Comment(models.Model):
-    user_name = models.CharField(
-        max_length=50,
-        validators=[RegexValidator(r'^[a-zA-Z0-9]+$', 'Only letters and digits allowed')],
-        help_text='Letters and digits only (required)'
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='comments',
+        help_text='Associated user (required)'
     )
-    email = models.EmailField(validators=[EmailValidator()], help_text='Valid email format (required)')
-    home_page = models.URLField(blank=True, null=True, validators=[URLValidator()], help_text='Valid URL (optional)')
     text = models.TextField(
         validators=[MaxLengthValidator(5000)],
         help_text='Text with allowed HTML tags (<a>, <code>, <i>, <strong>)'
@@ -46,16 +46,18 @@ class Comment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Comment by {self.user_name}: {self.text[:50]}..."
+        return f"Comment by {self.user.username}: {self.text[:50]}..."
 
     def get_replies(self):
-        """OOP метод: каскадне відображення відповідей"""
         return self.replies.order_by('-created_at').all()
 
     def is_root_comment(self):
-        """OOP метод: чи кореневий коментар (для таблиці)"""
         return self.parent is None
 
     class Meta:
-        ordering = ['-created_at']  # LIFO за замовчуванням
+        ordering = ['-created_at']
         db_table = 'comments'
+        indexes = [
+            models.Index(fields=['created_at', 'user']),
+            models.Index(fields=['parent']),
+        ]

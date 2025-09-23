@@ -1,41 +1,95 @@
-version: '3.8'
-
 services:
-  celery:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    command: celery -A comments_project worker --loglevel=info
-    volumes:
-      - ./backend:/app
-    depends_on:
-      - redis
-    networks:
-      - app-network
-
   django:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    command: daphne -b 0.0.0.0 -p 8000 comments_project.asgi:application
+    entrypoint: ["/app/entrypoint-django.sh"]
+    user: appuser
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app
-      - media:/app/media
-    depends_on:
-      - redis
+      - media:/app/comments_project/media
     environment:
-      - DEBUG=False  # У продакшні вимкни DEBUG
-      - ALLOWED_HOSTS=django localhost 127.0.0.1
+      - DB_HOST=postgres
+      - DB_NAME=comments_db
+      - DB_USER=user
+      - DB_PASSWORD=user_password
       - DJANGO_SETTINGS_MODULE=comments_project.settings
+      - PYTHONPATH=/app/comments_project
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s  # Збільшено до 60 секунд
     networks:
       - app-network
-    command: daphne -b 0.0.0.0 -p 8000 comments_project.asgi:application
+
+  celery:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: celery -A comments_project.celery worker --loglevel=info
+    entrypoint: ["/app/entrypoint-celery.sh"]
+    user: appuser
+    volumes:
+      - ./backend:/app
+    environment:
+      - DB_HOST=postgres
+      - DB_NAME=comments_db
+      - DB_USER=user
+      - DB_PASSWORD=user_password
+      - DJANGO_SETTINGS_MODULE=comments_project.settings
+      - PYTHONPATH=/app/comments_project
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "celery", "-A", "comments_project.celery", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      - app-network
 
   redis:
-    image: redis:latest
+    image: redis:7.2
     ports:
       - "6379:6379"
+    command: redis-server --appendonly no --save ""
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - redis-data:/data
+    networks:
+      - app-network
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: comments_db
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: user_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "user", "-d", "comments_db", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - app-network
 
@@ -46,12 +100,20 @@ services:
     ports:
       - "8080:80"
     depends_on:
-      - django
+      django:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - app-network
 
 volumes:
   media:
+  postgres-data:
+  redis-data:
 
 networks:
   app-network:

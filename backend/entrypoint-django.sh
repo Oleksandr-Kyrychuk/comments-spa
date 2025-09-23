@@ -39,5 +39,7 @@ done
 echo "Applying Django migrations..."
 python /app/comments_project/manage.py migrate --noinput
 
-# Виконуємо команду, передану через CMD у docker-compose.yml
+# Додаємо перевірку доступності сервера
+echo "Starting Daphne server..."
+# Запускаємо Daphne у передньому плані
 exec "$@"

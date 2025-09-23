@@ -35,9 +35,6 @@ until redis-cli -h redis ping | grep -q PONG; do
     fi
 done
 
-# Виконуємо міграції
-echo "Applying Django migrations..."
-python /app/comments_project/manage.py migrate --noinput
-
+# НЕ виконуємо міграції для Celery
 # Виконуємо команду, передану через CMD у docker-compose.yml
 exec "$@"

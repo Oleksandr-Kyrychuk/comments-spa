@@ -1,35 +1,21 @@
-"""comments_project URL Configuration
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/3.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 from captcha.views import captcha_refresh
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from django.middleware.csrf import get_token
 from django.http import HttpResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
-from django.views.decorators.csrf import csrf_exempt
-from django.urls import re_path
 
 @ensure_csrf_cookie
 def csrf_cookie(request):
     return HttpResponse(status=200)
 
+def health_check(request):
+    return HttpResponse("OK", status=200)
+
 urlpatterns = [
+    path('', health_check, name='health-check'),  # Додаємо простий маршрут для healthcheck
     path('admin/', admin.site.urls),
     path('csrf-cookie/', csrf_cookie, name='csrf_cookie'),
     path('api/', include('comments.urls')),
