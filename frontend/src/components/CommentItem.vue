@@ -1,10 +1,11 @@
+<!-- CommentItem.vue -->
 <template>
   <div class="comment-block" :style="{ marginLeft: level * 20 + 'px' }">
     <img :src="avatarUrl" class="avatar" alt="Avatar" />
     <div class="content">
       <!-- Reply to parent -->
-      <div v-if="parentUsername" class="reply-to">
-        Відповідь на: <span class="username">{{ parentUsername }}</span>
+      <div v-if="comment.parent_username" class="reply-to">
+        Reply to: <span class="username">{{ comment.parent_username }}</span>
       </div>
 
       <!-- Header -->
@@ -67,7 +68,6 @@ import { ref, computed } from 'vue';
 import EasyLightbox from 'vue-easy-lightbox';
 import CommentForm from './CommentForm.vue';
 import md5 from 'md5';
-import { useStore } from 'vuex';
 
 const mediaUrl = process.env.VUE_APP_API_BASE
   ? `${process.env.VUE_APP_API_BASE}/media/`
@@ -77,13 +77,11 @@ export default {
   name: 'CommentItem',
   props: {
     comment: { type: Object, required: true },
-    level: { type: Number, default: 0 }, // Added level prop for indentation
+    level: { type: Number, default: 0 },
   },
-  components: { EasyLightbox, CommentForm, CommentItem: null },
+  components: { EasyLightbox, CommentForm },
   emits: ['add-reply'],
   setup(props, { emit }) {
-    const store = useStore();
-
     const visible = ref(false);
     const lightboxUrl = ref('');
     const showReplyForm = ref(false);
@@ -102,28 +100,13 @@ export default {
       emit('add-reply', payload);
     };
 
-    const isTextFile = computed(() => props.comment.file?.endsWith('.txt') || false);
+    const isTextFile = computed(() => props.comment.file?.endswith('.txt') || false);
     const avatarUrl = computed(() =>
       `https://www.gravatar.com/avatar/${md5(props.comment.user.email || '')}?s=40&d=identicon`
     );
     const formatDate = (dateStr) => new Date(dateStr).toLocaleString();
     const getFileUrl = (filePath) =>
       filePath ? (filePath.startsWith(mediaUrl) ? filePath : mediaUrl + filePath) : '';
-
-    const parentUsername = computed(() => {
-      if (!props.comment.parent) return '';
-      const findParent = (comments, parentId) => {
-        for (let comment of comments) {
-          if (comment.id === parentId) return comment.user?.username || 'Анонім';
-          if (comment.replies?.length) {
-            const res = findParent(comment.replies, parentId);
-            if (res) return res;
-          }
-        }
-        return '';
-      };
-      return store.state.comments.length ? findParent(store.state.comments, props.comment.parent) : '';
-    });
 
     return {
       isTextFile,
@@ -136,7 +119,6 @@ export default {
       getFileUrl,
       addReply,
       handleAddReply,
-      parentUsername,
     };
   },
 };
@@ -148,7 +130,7 @@ export default {
   margin: 10px 0;
   padding: 10px;
   border-bottom: 1px solid #ddd;
-  border-left: 3px solid #ccc; /* Added for visual cascade effect */
+  border-left: 3px solid #ccc;
 }
 .avatar {
   width: 40px;
@@ -173,8 +155,8 @@ export default {
   margin: 5px 0;
 }
 .replies {
-  padding-left: 15px; /* Consistent padding for replies */
-  border-left: 3px solid #ccc; /* Reinforced cascade effect */
+  padding-left: 15px;
+  border-left: 3px solid #ccc;
 }
 .reply-form {
   margin-top: 10px;

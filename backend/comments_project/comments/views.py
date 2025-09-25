@@ -1,3 +1,4 @@
+# views.py
 from rest_framework import generics, viewsets
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -17,6 +18,7 @@ from django.views.decorators.cache import cache_page
 from django.core.cache import cache
 from django.utils.decorators import method_decorator
 
+
 logger = logging.getLogger(__name__)
 
 class CommentPagination(PageNumberPagination):
@@ -25,7 +27,7 @@ class CommentPagination(PageNumberPagination):
 class CommentViewSet(viewsets.ModelViewSet):
     serializer_class = CommentSerializer
     pagination_class = CommentPagination
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [AllowAny]
     authentication_classes = [JWTAuthentication]
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_fields = ['user__username', 'user__email', 'created_at']
@@ -33,11 +35,14 @@ class CommentViewSet(viewsets.ModelViewSet):
     ordering = ['-created_at']
 
     def get_queryset(self):
-        queryset = Comment.objects.filter(parent__isnull=True).select_related('user').order_by('-created_at')
-        ordering = self.request.query_params.get('ordering')
-        if ordering in ['created_at', '-created_at']:
-            queryset = queryset.order_by(ordering)
+        ordering = self.request.query_params.get('ordering', '-created_at')
+        queryset = Comment.objects.filter(parent__isnull=True).select_related('user').order_by(ordering)
         return queryset
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context.update({'request': self.request})
+        return context
 
 class CommentListCreateView(generics.ListCreateAPIView):
     queryset = Comment.objects.filter(parent__isnull=True).select_related('user')
@@ -63,14 +68,30 @@ class CommentListCreateView(generics.ListCreateAPIView):
         logger.info(f"Received data: {request.data}")
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            logger.info(f"Validated data: {serializer.validated_data}")
-            save_comment.delay(serializer.validated_data)
+            # Зберігаємо коментар у базі
+            instance = serializer.save()
+            logger.info(f"Comment saved with id: {instance.id}")
+
+            # Викликаємо Celery таск для WebSocket
+            save_comment.delay(instance.id)
+
+            # Повертаємо попередній відповідь
+            parent_id = instance.parent.id if instance.parent else None
+            response_data = {
+                'user': serializer.validated_data['user'],
+                'text': serializer.validated_data['text'],
+                'parent': parent_id,
+                'file': str(serializer.validated_data.get('file')) if serializer.validated_data.get('file') else None,
+                'created_at': instance.created_at,
+                'replies': [],
+                'parent_username': instance.parent.user.username if instance.parent else ''
+            }
             return Response(
                 {
-                    "message": "Comment accepted for processing",
-                    "data": serializer.validated_data
+                    "message": "Comment saved successfully",
+                    "data": response_data
                 },
-                status=status.HTTP_202_ACCEPTED
+                status=status.HTTP_201_CREATED
             )
         else:
             logger.error(f"Serializer errors: {serializer.errors}")

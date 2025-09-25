@@ -1,32 +1,32 @@
 # Comments SPA
 
 ## Project Overview
-Comments SPA is a single-page application for managing threaded comments with user identification, file uploads, and real-time updates. The project is built using Django (backend) and Vue.js (frontend), with PostgreSQL for data storage, Redis for caching and message brokering, Celery for asynchronous tasks, and WebSocket (Django Channels) for real-time comment updates. It supports user authentication via JWT, CAPTCHA for spam protection, and file uploads (images and text files) with validation.
+Comments SPA is a single-page application for managing threaded comments with user identification, file uploads, and real-time updates. Built with Django (backend) and Vue.js (frontend), it uses PostgreSQL for data storage, Redis for caching and message brokering, Celery for asynchronous tasks, and Django Channels for WebSocket-based real-time comment updates. The application supports JWT authentication, CAPTCHA for spam protection, and validated file uploads (images and text files).
 
-This project meets the requirements for a **Junior+** level, implementing Queue (Celery), Cache (Redis), Events (WebSocket), and JWT authentication.
+This project fulfills the **Junior+** level requirements, incorporating Queue (Celery), Cache (Redis), Events (WebSocket), and JWT authentication.
 
 ## Features
-- **Threaded Comments**: Supports nested (cascade) comments with no depth limit (frontend renders up to 5 levels).
+- **Threaded Comments**: Supports nested comments with no depth limit (frontend renders up to 5 levels for performance).
 - **Form Fields**:
-  - **User Name**: Alphanumeric (required).
-  - **Email**: Valid email format (required).
-  - **Home Page**: Valid URL (optional).
-  - **CAPTCHA**: Image-based, alphanumeric, refreshable (required).
+  - **User Name**: Alphanumeric, required.
+  - **Email**: Valid email format, required.
+  - **Home Page**: Valid URL, optional.
+  - **CAPTCHA**: Image-based, alphanumeric, refreshable, required.
   - **Text**: Supports HTML tags `<a href title>`, `<code>`, `<i>`, `<strong>` with XSS sanitization.
 - **File Uploads**:
   - Images (JPG, GIF, PNG) resized to 320x240 pixels.
   - Text files (TXT) up to 100KB.
-  - Lightbox effect for image preview (via vue-easy-lightbox).
+  - Lightbox effect for image previews using vue-easy-lightbox.
 - **Sorting**: By username, email, or date (ascending/descending, default: LIFO).
 - **Pagination**: 25 comments per page for top-level comments.
 - **Real-Time Updates**: New comments are pushed via WebSocket.
 - **Security**:
-  - XSS protection via `bleach` (sanitizes HTML tags).
-  - SQL injection protection via Django ORM.
+  - XSS protection via `bleach` for HTML sanitization.
+  - SQL injection prevention via Django ORM.
   - CSRF protection for forms.
   - Optional JWT authentication for comment creation.
-- **Asynchronous Processing**: Comment creation via Celery tasks.
-- **Caching**: Comment list cached in Redis (15-minute TTL).
+- **Asynchronous Processing**: Comment creation handled by Celery tasks.
+- **Caching**: Comment lists cached in Redis with a 15-minute TTL.
 - **Docker**: Fully containerized with Django, Celery, Redis, PostgreSQL, and Nginx.
 
 ## Tech Stack
@@ -40,6 +40,8 @@ This project meets the requirements for a **Junior+** level, implementing Queue 
 ## Project Structure
 ```
 comments-spa/
+├── docs/
+│   └── schema.sql
 ├── backend/
 │   ├── comments/
 │   │   ├── __init__.py
@@ -60,6 +62,8 @@ comments-spa/
 │   │   ├── settings.py
 │   │   ├── urls.py
 │   │   └── wsgi.py
+│   ├── db/
+│   │   └── init.sql (optional, for test data)
 │   ├── Dockerfile
 │   ├── entrypoint-celery.sh
 │   ├── entrypoint-django.sh
@@ -84,8 +88,8 @@ comments-spa/
 ## Prerequisites
 - Docker and Docker Compose installed.
 - Git for cloning the repository.
-- Node.js 18 (for local frontend development, optional).
-- Python 3.11 (for local backend development, optional).
+- Node.js 18 (optional, for local frontend development).
+- Python 3.11 (optional, for local backend development).
 
 ## Installation and Setup
 ### 1. Clone the Repository
@@ -106,7 +110,7 @@ REDIS_URL=redis://redis:6379/0
 ```bash
 docker-compose up --build
 ```
-- This starts Django (port 8000), Celery, Redis, PostgreSQL, and Nginx (port 8080).
+- Starts Django (port 8000), Celery, Redis, PostgreSQL, and Nginx (port 8080).
 - Django migrations are applied automatically via `entrypoint-django.sh`.
 - Access the app at `http://localhost:8080`.
 
@@ -126,7 +130,7 @@ docker-compose exec django python /app/comments_project/manage.py test
 1. **Open the App**: Navigate to `http://localhost:8080`.
 2. **Create a Comment**:
    - Fill in the form (username, email, optional homepage, text, CAPTCHA).
-   - Use the tag buttons ([i], [strong], [code], [a]) to insert allowed HTML.
+   - Use tag buttons ([i], [strong], [code], [a]) to insert allowed HTML.
    - Optionally upload an image (JPG/GIF/PNG) or TXT file.
    - Click "Preview" to see sanitized text.
    - Submit to post (processed asynchronously via Celery, pushed via WebSocket).
@@ -135,7 +139,7 @@ docker-compose exec django python /app/comments_project/manage.py test
    - Sort by username, email, or date using the dropdown.
    - Click images to view in a lightbox.
 4. **Reply**: Click "Reply" to add nested comments.
-5. **JWT Authentication** (optional):
+5. **JWT Authentication** (Optional):
    - Get a token: `POST /api/token/` with `{ "username": "", "password": "" }`.
    - Include `Authorization: Bearer <token>` in API requests.
 
@@ -157,22 +161,33 @@ docker-compose exec django python /app/comments_project/manage.py test
 - Events: `new_comment` with serialized comment data.
 
 ## Database Schema
-The schema is designed for PostgreSQL and can be visualized in MySQL Workbench (export via `pg_dump` or Workbench-compatible tools).
+The database schema is defined in `docs/schema.sql` for PostgreSQL and can be visualized in MySQL Workbench for review as per the test assignment requirements. This file contains the SQL code to create the `users` and `comments` tables with appropriate constraints and indexes.
+
+To apply the schema manually in a PostgreSQL environment:
+```bash
+psql -U user -d postgres -f docs/schema.sql
+```
+
+To generate the schema from the running PostgreSQL instance (alternative method):
+```bash
+docker-compose exec postgres pg_dump -h postgres -U user -d comments_db --schema-only > docs/schema.sql
+```
+
 - **users**:
-  - id (PK)
-  - username (varchar, alphanumeric, required)
-  - email (varchar, email format, required)
-  - homepage (varchar, URL, optional)
-  - created_at (datetime)
+  - id (PK, BIGSERIAL)
+  - username (VARCHAR(50), alphanumeric, required)
+  - email (VARCHAR(255), email format, required)
+  - homepage (VARCHAR(255), URL, optional)
+  - created_at (TIMESTAMP WITH TIME ZONE)
   - Indexes: [username, email]
 - **comments**:
-  - id (PK)
-  - user (FK to users, on_delete=CASCADE)
-  - text (text, max 5000 chars, sanitized HTML)
-  - parent (FK to self, nullable, on_delete=CASCADE)
-  - file (file, uploads/YYYY/MM/DD/, nullable)
-  - created_at (datetime)
-  - Indexes: [created_at, user], [parent]
+  - id (PK, BIGSERIAL)
+  - user_id (FK to users, ON DELETE CASCADE)
+  - text (TEXT, max 5000 chars, sanitized HTML)
+  - parent_id (FK to self, nullable, ON DELETE CASCADE)
+  - file (VARCHAR(255), uploads/YYYY/MM/DD/, nullable)
+  - created_at (TIMESTAMP WITH TIME ZONE)
+  - Indexes: [created_at, user_id], [parent_id]
 
 ## Security
 - **XSS**: HTML sanitized with `bleach` (allowed: `<a>`, `<code>`, `<i>`, `<strong>`).
@@ -183,10 +198,10 @@ The schema is designed for PostgreSQL and can be visualized in MySQL Workbench (
 - **JWT**: Optional authentication for API (IsAuthenticatedOrReadOnly).
 
 ## Known Issues and Improvements
-- **Table View**: Frontend uses div-based threads instead of a table for top-level comments (TBD: add table UI).
-- **XHTML Validation**: `bleach` sanitizes tags but does not enforce strict XHTML tag closure (TBD: add lxml check).
-- **JWT Enforcement**: Comment creation allows anonymous users (TBD: enforce IsAuthenticated for user tracking).
-- **Tests**: Basic test file exists, but no functional tests (TBD: add tests for Comment creation).
+- **Table View**: Top-level comments use div-based threads instead of a table for better responsiveness and mobile compatibility. A table-based UI can be added if required.
+- **XHTML Validation**: `bleach` sanitizes HTML but does not enforce strict XHTML tag closure. A check via `lxml` can be added for full compliance.
+- **JWT Enforcement**: Comment creation allows anonymous users for flexibility. Can be restricted to authenticated users if needed.
+- **Tests**: Basic tests exist in `tests.py`. Functional tests for comment creation and API endpoints can be added for robustness.
 
 ## Deployment
 - **Hosting**: Tested on Render.com. Set `DATABASE_URL`, `REDIS_URL`, `SECRET_KEY` in environment variables.
@@ -206,11 +221,7 @@ The schema is designed for PostgreSQL and can be visualized in MySQL Workbench (
   npm install
   npm run serve
   ```
-- To generate schema for MySQL Workbench:
-  ```bash
-  docker-compose exec postgres pg_dump -h postgres -U user -d comments_db --schema-only > schema.sql
-  ```
-- Video demonstration available (TBD: include link to uploaded video).
+- Video demonstration: [Link to video](https://your-video-hosting-service.com/video) (TBD: upload and update link).
 
 ## Contact
 For feedback or issues, contact the developer at [your-email@example.com].
