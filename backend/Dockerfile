@@ -19,6 +19,7 @@ RUN pip install daphne
 
 COPY . .
 
+RUN mkdir -p /app/comments_project/static
 RUN python comments_project/manage.py collectstatic --noinput
 
 # Створюємо непрівільованого користувача
@@ -38,4 +39,3 @@ USER appuser
 
 # Додаємо ENTRYPOINT та CMD
 ENTRYPOINT ["/app/entrypoint-django.sh"]
-CMD ["daphne"]
