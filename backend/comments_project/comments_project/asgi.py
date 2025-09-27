@@ -5,19 +5,17 @@ from channels.auth import AuthMiddlewareStack
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'comments_project.settings')
 
-# Django ASGI додаток
+# Ініціалізуємо Django ASGI додаток
 django_asgi_app = get_asgi_application()
 
-# Routing відкладаємо
-try:
+# Відкладаємо імпорт routing до моменту, коли він буде потрібен
+def get_application():
     from comments import routing
-    websocket_patterns = routing.websocket_urlpatterns
-except ImportError:
-    websocket_patterns = []
+    return ProtocolTypeRouter({
+        "http": django_asgi_app,
+        "websocket": AuthMiddlewareStack(
+            URLRouter(routing.websocket_urlpatterns)
+        ),
+    })
 
-application = ProtocolTypeRouter({
-    "http": django_asgi_app,
-    "websocket": AuthMiddlewareStack(
-        URLRouter(websocket_patterns)
-    ),
-})
+application = get_application()
