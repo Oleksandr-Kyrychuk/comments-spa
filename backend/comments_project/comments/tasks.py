@@ -1,4 +1,5 @@
 from celery import shared_task
+from django.db import transaction
 from .models import Comment
 from .serializers import CommentSerializer
 import logging
@@ -10,16 +11,19 @@ logger = logging.getLogger(__name__)
 @shared_task
 def save_comment(comment_id):
     """
-    Celery таск для відправки вже збереженого коментаря через WebSocket.
+    Celery task для відправки вже збереженого коментаря через WebSocket.
     """
     try:
-        # отримуємо коментар з бази
-        instance = Comment.objects.get(id=comment_id)
+        # Отримуємо коментар з бази з використанням транзакції
+        with transaction.atomic():
+            instance = Comment.objects.get(id=comment_id)
+            logger.info(f"Retrieved comment ID {comment_id} from database")
 
-        # серіалізуємо для WebSocket
+        # Серіалізуємо для WebSocket
         serialized_comment = CommentSerializer(instance, context={'request': None}).data
+        logger.info(f"Serialized comment ID {comment_id}: {serialized_comment}")
 
-        # надсилаємо через WebSocket
+        # Надсилаємо через WebSocket
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             'comments_group',
@@ -36,5 +40,5 @@ def save_comment(comment_id):
         logger.error(f"Comment with id {comment_id} does not exist")
         raise
     except Exception as e:
-        logger.error(f"Error in send_comment_ws task: {str(e)}")
+        logger.error(f"Error in save_comment task for comment ID {comment_id}: {str(e)}")
         raise

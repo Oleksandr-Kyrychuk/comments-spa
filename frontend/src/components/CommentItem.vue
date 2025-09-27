@@ -39,7 +39,7 @@
       </div>
 
       <!-- Reply button -->
-      <button @click="showReplyForm = !showReplyForm" class="btn btn-link">Reply</button>
+      <button v-if="comment.id" @click="showReplyForm = !showReplyForm" class="btn btn-link">Reply</button>
 
       <!-- Reply form -->
       <div v-if="showReplyForm" class="reply-form">
@@ -53,7 +53,7 @@
       <div v-if="comment.replies?.length" class="replies">
         <CommentItem
           v-for="reply in comment.replies"
-          :key="reply.id"
+          :key="reply.id || reply.tempId"
           :comment="reply"
           :level="level + 1"
           @add-reply="handleAddReply"
@@ -100,9 +100,9 @@ export default {
       emit('add-reply', payload);
     };
 
-    const isTextFile = computed(() => props.comment.file?.endswith('.txt') || false);
+    const isTextFile = computed(() => props.comment.file?.endsWith('.txt') || false);
     const avatarUrl = computed(() =>
-      `https://www.gravatar.com/avatar/${md5(props.comment.user.email || '')}?s=40&d=identicon`
+      `https://www.gravatar.com/avatar/${md5(props.comment.user?.email || '')}?s=40&d=identicon`
     );
     const formatDate = (dateStr) => new Date(dateStr).toLocaleString();
     const getFileUrl = (filePath) =>
