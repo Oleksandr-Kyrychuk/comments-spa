@@ -13,11 +13,11 @@ server {
 
     # API проксі
     location /api/ {
-        proxy_pass ${BACKEND_URL}/api/;
+        proxy_pass $BACKEND_URL/api/;
         proxy_ssl_protocols TLSv1.2 TLSv1.3;
         proxy_ssl_ciphers HIGH:!aNULL:!MD5;
-        proxy_ssl_verify off;           # ігнор сертифіката
-        proxy_ssl_server_name on;       # SNI для HTTPS
+        proxy_ssl_verify off;
+        proxy_ssl_server_name on;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -25,7 +25,7 @@ server {
 
     # WebSocket проксі
     location /ws/ {
-        proxy_pass ${BACKEND_URL};
+        proxy_pass $BACKEND_URL;
         proxy_http_version 1.1;
         proxy_ssl_protocols TLSv1.2 TLSv1.3;
         proxy_ssl_ciphers HIGH:!aNULL:!MD5;
@@ -38,11 +38,11 @@ server {
 
     # CAPTCHA проксі
     location /captcha/ {
-        proxy_pass ${BACKEND_URL}/captcha/;
+        proxy_pass $BACKEND_URL/captcha/;
         proxy_ssl_protocols TLSv1.2 TLSv1.3;
         proxy_ssl_ciphers HIGH:!aNULL:!MD5;
         proxy_ssl_verify off;
-        proxy_ssl_server_name on;       # SNI для HTTPS
+        proxy_ssl_server_name on;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -50,9 +50,9 @@ server {
 
     # Media файли
     location /media/ {
-        proxy_pass ${BACKEND_URL}/media/;
-        proxy_ssl_verify off;           # ігнор сертифіката
-        proxy_ssl_server_name on;       # SNI для HTTPS
+        proxy_pass $BACKEND_URL/media/;
+        proxy_ssl_verify off;
+        proxy_ssl_server_name on;
         proxy_set_header Host $host;
     }
 }
