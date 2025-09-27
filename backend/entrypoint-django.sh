@@ -54,5 +54,5 @@ if [ -z "$PORT" ]; then
 fi
 
 # Запуск Daphne
-echo "Starting Daphne server..."
-exec daphne -b 0.0.0.0 -p "$PORT" comments_project.asgi:application
+pip install gunicorn  # Додай в requirements.txt якщо немає
+exec gunicorn --bind 0.0.0.0:$PORT --workers 2 comments_project.wsgi:application

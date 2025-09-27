@@ -38,3 +38,4 @@ django-redis
 mysqlclient==2.1.0
 dj-database-url==2.2.0
 twisted[tls,http2]
+gunicorn
