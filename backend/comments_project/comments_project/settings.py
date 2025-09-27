@@ -51,7 +51,7 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 # CSRF trusted origins з ENV
 CSRF_TRUSTED_ORIGINS = os.getenv(
     'CSRF_TRUSTED_ORIGINS',
-    'comments-spa-production-d975.up.railway.app,http://localhost:8000,http://127.0.0.1:8000'
+    'https://comments-spa-production-d975.up.railway.app,http://localhost:8000,http://127.0.0.1:8000'
 ).split(',')
 
 ROOT_URLCONF = 'comments_project.urls'
