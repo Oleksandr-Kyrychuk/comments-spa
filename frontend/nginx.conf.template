@@ -1,5 +1,5 @@
 server {
-    listen ${PORT};
+    listen 80;
     server_name localhost;
 
     error_log /var/log/nginx/error.log debug;
@@ -13,7 +13,7 @@ server {
 
     # API
     location /api/ {
-        proxy_pass https://comments-spa-production-d975.up.railway.app/;
+        proxy_pass https://comments-spa-production-d975.up.railway.app/api/;
         proxy_ssl_verify off;
         proxy_ssl_server_name on;
         proxy_ssl_protocols TLSv1.2 TLSv1.3;
@@ -22,7 +22,6 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     # WebSocket
@@ -30,11 +29,8 @@ server {
         proxy_pass https://comments-spa-production-d975.up.railway.app/ws/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "Upgrade";
+        proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
 
         proxy_ssl_verify off;
         proxy_ssl_server_name on;
@@ -47,11 +43,9 @@ server {
         proxy_pass https://comments-spa-production-d975.up.railway.app/captcha/;
         proxy_ssl_verify off;
         proxy_ssl_server_name on;
-
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     # Media
@@ -59,10 +53,6 @@ server {
         proxy_pass https://comments-spa-production-d975.up.railway.app/media/;
         proxy_ssl_verify off;
         proxy_ssl_server_name on;
-
         proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
