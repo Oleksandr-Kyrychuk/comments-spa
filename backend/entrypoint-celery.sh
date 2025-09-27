@@ -1,13 +1,8 @@
 #!/bin/bash
 
-# Додаємо PYTHONPATH для забезпечення правильного імпорту
 export PYTHONPATH=/app/comments_project:$PYTHONPATH
 
-# Початкова затримка для ініціалізації PostgreSQL
-echo "Waiting for PostgreSQL initialization..."
-sleep 5
-
-# Чекаємо, поки PostgreSQL буде доступним (максимум 30 спроб)
+# PostgreSQL чекати
 echo "Waiting for PostgreSQL..."
 export PGPASSWORD=user_password
 counter=0
@@ -22,10 +17,14 @@ until pg_isready -h postgres -U user -d comments_db; do
     fi
 done
 
-# Чекаємо, поки Redis буде доступним (максимум 30 спроб)
-echo "Waiting for Redis..."
+# Redis чекати через REDIS_URL
+REDIS_HOST=$(echo $REDIS_URL | sed -E 's|redis://([^:]+):([^@]+)@([^:]+):([0-9]+)/.*|\3|')
+REDIS_PORT=$(echo $REDIS_URL | sed -E 's|redis://([^:]+):([^@]+)@([^:]+):([0-9]+)/.*|\4|')
+REDIS_PASSWORD=$(echo $REDIS_URL | sed -E 's|redis://([^:]+):([^@]+)@([^:]+):([0-9]+)/.*|\2|')
+
+echo "Waiting for Redis at $REDIS_HOST:$REDIS_PORT..."
 counter=0
-until redis-cli -h redis ping | grep -q PONG; do
+until redis-cli -h $REDIS_HOST -p $REDIS_PORT -a $REDIS_PASSWORD ping | grep -q PONG; do
     echo "Redis is unavailable - sleeping"
     sleep 2
     counter=$((counter+1))
@@ -35,6 +34,5 @@ until redis-cli -h redis ping | grep -q PONG; do
     fi
 done
 
-# НЕ виконуємо міграції для Celery
-# Виконуємо команду, передану через CMD у docker-compose.yml
+# Запуск CMD
 exec "$@"

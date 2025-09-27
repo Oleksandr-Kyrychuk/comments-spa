@@ -176,3 +176,5 @@ LOGGING = {
         },
     },
 }
+
+print(os.getenv('REDIS_URL'))
