@@ -2,6 +2,9 @@ server {
     listen ${PORT};
     server_name localhost;
 
+    error_log /var/log/nginx/error.log debug;
+    access_log /var/log/nginx/access.log;
+
     # Статичні файли Vue
     location / {
         root /usr/share/nginx/html;
@@ -11,8 +14,8 @@ server {
     # API
     location /api/ {
         proxy_pass ${BACKEND_URL};
-        proxy_ssl_verify off;       # ігноруємо сертифікат
-        proxy_ssl_server_name on;   # для SNI
+        proxy_ssl_verify off;
+        proxy_ssl_server_name on;
         proxy_ssl_protocols TLSv1.2 TLSv1.3;
         proxy_ssl_ciphers HIGH:!aNULL:!MD5;
 
@@ -28,6 +31,7 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
+
         proxy_ssl_verify off;
         proxy_ssl_server_name on;
         proxy_ssl_protocols TLSv1.2 TLSv1.3;

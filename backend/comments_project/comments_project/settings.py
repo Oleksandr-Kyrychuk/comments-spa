@@ -40,6 +40,15 @@ MIDDLEWARE = [
 
 CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:8080,http://127.0.0.1:8080,http://localhost:8000,http://127.0.0.1:8000').split(',')
 
+# Проксі Railway передає HTTPS через X-Forwarded-Proto
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# CSRF trusted origins з ENV
+CSRF_TRUSTED_ORIGINS = os.getenv(
+    'CSRF_TRUSTED_ORIGINS',
+    'http://localhost:8000,http://127.0.0.1:8000'
+).split(',')
+
 ROOT_URLCONF = 'comments_project.urls'
 
 TEMPLATES = [
