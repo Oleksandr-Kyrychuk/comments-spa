@@ -79,7 +79,7 @@ export default {
   actions: {
     async fetchComments({ commit, state }, { baseUrl, page = 1 } = {}) {
       try {
-        const apiUrl = baseUrl || process.env.BACKEND_URL || 'http://localhost:8000/api';
+        const apiUrl = baseUrl || 'http://localhost:8000/api';
         console.log('Fetching comments from:', `${apiUrl}/comments/`, 'with params:', { ordering: state.ordering, page });
 
         const res = await axios.get(`${apiUrl}/comments/`, {
@@ -106,11 +106,11 @@ export default {
         const comments = (res.data.results || []).map(normalizeReplies);
         console.log('Comments for current page:', comments.map(c => ({ id: c.id, text: c.text, replies: c.replies.map(r => r.id) })));
 
-        commit('SET_COMMENTS', comments);
+        commit('SET_COMMENTS', comments); // Зберігаємо лише коментарі поточної сторінки
         commit('SET_PAGINATION', { previous: res.data.previous, next: res.data.next });
         commit('SET_CURRENT_PAGE', page);
 
-        return comments;
+        return comments; // Повертаємо коментарі для використання в компоненті
       } catch (err) {
         console.error('Fetch comments error:', err.response?.data || err.message);
         console.error('Status:', err.response?.status);
@@ -119,8 +119,8 @@ export default {
       }
     },
     changePage({ dispatch }, { baseUrl, page }) {
-      console.log('Changing page to:', page);
-      dispatch('fetchComments', { baseUrl, page });
-    },
+  console.log('Changing page to:', page);
+  dispatch('fetchComments', { baseUrl, page });
+},
   },
 };
