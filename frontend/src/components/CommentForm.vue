@@ -162,9 +162,10 @@ export default {
         console.log('Refreshing CAPTCHA from:', CAPTCHA_URL);
         const timestamp = Date.now();
         const { data } = await axios.get(`${CAPTCHA_URL}?_=${timestamp}`, {
-          withCredentials: true,
-          headers: { 'X-Requested-With': 'XMLHttpRequest' },
-        });
+  withCredentials: true,
+  headers: { 'X-Requested-With': 'XMLHttpRequest' },
+});
+console.log('CAPTCHA response:', data);
         console.log('CAPTCHA data:', data);
         form.value.captcha_0 = data.key;
         captchaImage.value = `${API_BASE}/../captcha/image/${data.key}/?_=${timestamp}`;
