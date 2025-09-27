@@ -38,13 +38,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    "http://frontend:8080",  # Додано для Docker
-]
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:8080,http://127.0.0.1:8080,http://localhost:8000,http://127.0.0.1:8000').split(',')
 
 ROOT_URLCONF = 'comments_project.urls'
 
@@ -117,7 +111,7 @@ CHANNEL_LAYERS = {
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': ['rest_framework_simplejwt.authentication.JWTAuthentication'],
-    'DEFAULT_PERMISSION_CLASSES': ['rest_framework.permissions.AllowAny'],  # Дозволяємо анонімний доступ
+    'DEFAULT_PERMISSION_CLASSES': ['rest_framework.permissions.AllowAny'],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 25,
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
@@ -163,7 +157,7 @@ LOGGING = {
     },
     'root': {
         'handlers': ['console'],
-        'level': 'DEBUG',  # Змінили на DEBUG для детальних логів
+        'level': 'DEBUG',
     },
     'loggers': {
         'django': {
@@ -178,5 +172,3 @@ LOGGING = {
         },
     },
 }
-
-print(os.getenv('REDIS_URL'))
