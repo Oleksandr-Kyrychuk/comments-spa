@@ -4,128 +4,123 @@ import { toRaw } from 'vue';
 export default {
   namespaced: true,
   state: () => ({
-    comments: [], // Гарантуємо порожній масив
+    comments: [],
     pagination: { previous: null, next: null },
     ordering: '-created_at',
     currentPage: 1,
   }),
   mutations: {
-  SET_COMMENTS(state, comments) {
-    const commentsArray = Array.isArray(comments) ? comments : [];
-    state.comments = commentsArray.map(c => ({
-      ...c,
-      tempId: c.tempId || `tmp_${c.id || Date.now()}_${Math.random()}`,
-      user: {
-        username: c.user?.username || c.user_name || 'Анонім',
-        email: c.user?.email || '',
-        homepage: c.user?.homepage || '',
-      },
-      replies: c.replies || [],
-      parent: c.parent || null,
-      parent_username: c.parent_username || null,
-    }));
-  },
-  ADD_COMMENT(state, comment) {
-    state.comments.unshift({
-      ...comment,
-      tempId: comment.tempId || `tmp_${comment.id || Date.now()}_${Math.random()}`,
-      replies: comment.replies || [],
-    });
-  },
-  ADD_REPLY(state, { parentId, reply }) {
-    const findComment = (comments, id) => {
-      const rawComments = toRaw(comments); // знімаємо Proxy
-      for (const c of rawComments) {
-        if (c.id === id || c.tempId === id) return c;
-        if (c.replies?.length) {
-          const found = findComment(c.replies, id);
-          if (found) return found;
+    SET_COMMENTS(state, comments) {
+      state.comments = comments;
+      console.log('SET_COMMENTS:', comments.map(c => ({ id: c.id, text: c.text, replies: c.replies.map(r => r.id) })));
+    },
+    SET_PAGINATION(state, pagination) {
+      state.pagination = pagination;
+      console.log('SET_PAGINATION:', pagination);
+    },
+    SET_CURRENT_PAGE(state, page) {
+      state.currentPage = page;
+      console.log('SET_CURRENT_PAGE:', page);
+    },
+    ADD_COMMENT(state, comment) {
+      console.log('Adding comment:', comment);
+      state.comments = [comment, ...state.comments];
+    },
+    ADD_REPLY(state, { parentId, reply }) {
+      const findComment = (comments, id) => {
+        const rawComments = toRaw(comments);
+        for (const c of rawComments) {
+          if (c.id === id || c.tempId === id) return c;
+          if (c.replies?.length) {
+            const found = findComment(c.replies, id);
+            if (found) return found;
+          }
         }
-      }
-      return null;
-    };
+        return null;
+      };
 
-    const parent = findComment(state.comments, parentId);
-    if (parent) {
-      parent.replies = [
-        ...(parent.replies || []),
-        {
-          ...reply,
-          tempId: reply.tempId || `tmp_${reply.id || Date.now()}_${Math.random()}`,
-          replies: reply.replies || [],
-        },
-      ];
-    }
-  },
-  UPDATE_COMMENT(state, { tempId, updatedComment }) {
-    const updateComment = (comments) => {
-      for (let i = 0; i < comments.length; i++) {
-        if (comments[i].tempId === tempId) {
-          comments[i] = { ...comments[i], ...updatedComment, tempId: comments[i].tempId };
-          return true;
-        }
-        if (comments[i].replies?.length) {
-          if (updateComment(comments[i].replies)) return true;
-        }
+      console.log('Adding reply with parentId:', parentId, 'Reply:', reply);
+      const parent = findComment(state.comments, parentId);
+      if (parent) {
+        parent.replies = [
+          ...(parent.replies || []),
+          {
+            ...reply,
+            tempId: reply.tempId || `tmp_${reply.id || Date.now()}_${Math.random()}`,
+            replies: reply.replies || [],
+          },
+        ];
+        console.log('Parent found, updated replies:', parent.replies);
+      } else {
+        console.error('Parent comment not found for parentId:', parentId);
       }
-      return false;
-    };
-    updateComment(state.comments);
+    },
+    UPDATE_COMMENT(state, { tempId, updatedComment }) {
+      console.log('Updating comment with tempId:', tempId, 'to:', updatedComment);
+      const findComment = (comments) => {
+        const rawComments = toRaw(comments);
+        for (const c of rawComments) {
+          if (c.tempId === tempId) {
+            Object.assign(c, updatedComment);
+            return true;
+          }
+          if (c.replies?.length) {
+            if (findComment(c.replies)) return true;
+          }
+        }
+        return false;
+      };
+
+      if (!findComment(state.comments)) {
+        console.error('Comment with tempId not found:', tempId);
+      }
+    },
   },
-},
   actions: {
     async fetchComments({ commit, state }, { baseUrl, page = 1 } = {}) {
       try {
         const apiUrl = baseUrl || 'http://localhost:8000/api';
         console.log('Fetching comments from:', `${apiUrl}/comments/`, 'with params:', { ordering: state.ordering, page });
-        let allComments = [];
-        let nextPage = page;
 
-        // Завантажуємо всі сторінки коментарів
-        while (nextPage) {
-          const res = await axios.get(`${apiUrl}/comments/`, {
-            params: { ordering: state.ordering, page: nextPage },
-            withCredentials: true,
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-          });
+        const res = await axios.get(`${apiUrl}/comments/`, {
+          params: { ordering: state.ordering, page },
+          withCredentials: true,
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
 
-          console.log('API response:', res.data);
-          console.log('Results:', res.data.results);
-          console.log('Pagination:', { previous: res.data.previous, next: res.data.next });
+        console.log('API response:', res.data);
+        console.log('Results:', res.data.results);
+        console.log('Replies for each comment:', res.data.results.map(c => ({ id: c.id, replies: c.replies.map(r => r.id) })));
 
-          const normalizeReplies = (comment) => {
-            console.log('Normalizing comment:', comment);
-            comment.replies = comment.replies?.map(r => normalizeReplies(r)) || [];
-            comment.user = {
-              username: comment.user?.username || comment.user_name || 'Анонім',
-              email: comment.user?.email || '',
-              homepage: comment.user?.homepage || '',
-            };
-            return comment;
+        const normalizeReplies = (comment) => {
+          console.log('Normalizing comment:', comment);
+          comment.replies = comment.replies?.map(r => normalizeReplies(r)) || [];
+          comment.user = {
+            username: comment.user?.username || comment.user_name || 'Анонім',
+            email: comment.user?.email || '',
+            homepage: comment.user?.homepage || '',
           };
+          return comment;
+        };
 
-          const comments = (res.data.results || []).map(normalizeReplies);
-allComments = [...allComments, ...comments];
+        const comments = (res.data.results || []).map(normalizeReplies);
+        console.log('Comments for current page:', comments.map(c => ({ id: c.id, text: c.text, replies: c.replies.map(r => r.id) })));
 
-// Додай дебаг
-console.log('All comments before commit:', allComments.map(c => ({
-  id: c.id,
-  tempId: c.tempId,
-  parent: c.parent,
-  text: c.text
-})));
+        commit('SET_COMMENTS', comments); // Зберігаємо лише коментарі поточної сторінки
+        commit('SET_PAGINATION', { previous: res.data.previous, next: res.data.next });
+        commit('SET_CURRENT_PAGE', page);
 
-commit('SET_COMMENTS', allComments);
-commit('SET_PAGINATION', { previous: res.data.previous, next: res.data.next });
-commit('SET_CURRENT_PAGE', nextPage);
-
-          nextPage = res.data.next ? nextPage + 1 : null;
-        }
+        return comments; // Повертаємо коментарі для використання в компоненті
       } catch (err) {
         console.error('Fetch comments error:', err.response?.data || err.message);
         console.error('Status:', err.response?.status);
         console.error('Headers:', err.response?.headers);
+        throw err;
       }
     },
+    changePage({ dispatch }, { baseUrl, page }) {
+  console.log('Changing page to:', page);
+  dispatch('fetchComments', { baseUrl, page });
+},
   },
 };

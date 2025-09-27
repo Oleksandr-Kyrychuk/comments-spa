@@ -1,167 +1,82 @@
 <template>
-  <div class="comment-list-container">
-    <!-- Контролі: сортування + пагінація -->
-    <div class="controls">
-      <select v-model="ordering" @change="changeOrdering" class="form-control">
+  <div class="comment-list">
+    <h2>Comments</h2>
+    <CommentForm @submitted="handleCommentSubmitted" />
+    <div class="sort-panel">
+      <label>Sort by:</label>
+      <select v-model="ordering" @change="fetchComments">
         <option value="-created_at">Newest first</option>
         <option value="created_at">Oldest first</option>
-        <option value="user__username">By username</option>
-        <option value="user__email">By email</option>
+        <option value="user__username">Username</option>
+        <option value="user__email">Email</option>
       </select>
-
-      <div class="pagination">
-        <button :disabled="!pagination.previous" @click="changePage('prev')" class="btn btn-secondary">Prev</button>
-        <button :disabled="!pagination.next" @click="changePage('next')" class="btn btn-secondary">Next</button>
-      </div>
     </div>
-
-    <!-- Дебаг: відображення кількості коментарів -->
-    <div>Завантажено коментарів: {{ comments.length }}</div>
-    <div v-if="comments.length === 0" class="no-comments">Немає коментарів або помилка API. Перевірте консоль.</div>
-
-    <!-- Таблиця коментарів -->
-    <table class="comment-table">
-      <thead>
-        <tr>
-          <th @click="changeOrdering('user__username')" class="sortable">Username</th>
-          <th @click="changeOrdering('user__email')" class="sortable">Email</th>
-          <th @click="changeOrdering('created_at')" class="sortable">Date</th>
-          <th>Text</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="comment in comments" :key="comment.id || comment.tempId" class="comment-row">
-          <td>{{ comment.user?.username || 'Анонім' }}</td>
-          <td>
-            <a v-if="comment.user?.email" :href="'mailto:' + comment.user.email">{{ comment.user.email }}</a>
-          </td>
-          <td>{{ formatDate(comment.created_at) }}</td>
-          <td>
-            <div v-html="comment.text"></div>
-            <div v-if="comment.file">
-              <a v-if="isTextFile(comment.file)" :href="getFileUrl(comment.file)" download>Download TXT</a>
-              <img
-                v-else
-                :src="getFileUrl(comment.file)"
-                @click="openLightbox(getFileUrl(comment.file))"
-                class="comment-image"
-              />
-            </div>
-            <button
-              v-if="comment.id"
-              @click="showReplyForm[comment.id || comment.tempId] = !showReplyForm[comment.id || comment.tempId]"
-              class="btn btn-link"
-            >
-              Reply
-            </button>
-
-            <div v-if="showReplyForm[comment.id || comment.tempId]" class="reply-form">
-              <CommentForm :parentId="comment.id" @submitted="handleCommentSubmitted" />
-            </div>
-
-            <!-- Вкладені коментарі -->
-            <div v-if="comment.replies?.length" class="replies">
-              <CommentItem
-                v-for="reply in comment.replies"
-                :key="reply.id || reply.tempId"
-                :comment="reply"
-                :level="1"
-                @add-reply="handleAddReply"
-              />
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-
-    <!-- Lightbox -->
-    <EasyLightbox v-model:visible="visible" :imgs="[lightboxUrl]" />
-
-    <!-- Форма нового коментаря -->
-    <CommentForm @submitted="handleCommentSubmitted" />
+    <div v-if="comments.length">
+      <CommentItem
+        v-for="comment in comments"
+        :key="comment.id || comment.tempId"
+        :comment="comment"
+        :level="1"
+        @add-reply="handleCommentSubmitted"
+      />
+    </div>
+    <div v-else>
+      <p>No comments yet.</p>
+    </div>
+    <div class="pagination">
+      <button
+        :disabled="!pagination.previous"
+        @click="changePage(currentPage - 1)"
+      >
+        Previous
+      </button>
+      <span>Page {{ currentPage }}</span>
+      <button
+        :disabled="!pagination.next"
+        @click="changePage(currentPage + 1)"
+      >
+        Next
+      </button>
+    </div>
   </div>
 </template>
 
 <script>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useStore } from 'vuex';
-import CommentItem from './CommentItem.vue';
 import CommentForm from './CommentForm.vue';
-import EasyLightbox from 'vue-easy-lightbox';
+import CommentItem from './CommentItem.vue';
 
-const WS_BASE = process.env.VUE_APP_WS_BASE || 'ws://localhost:8000/ws/comments/';
-const API_BASE = process.env.VUE_APP_API_BASE || 'http://localhost:8000/api';
-const MEDIA_URL = process.env.VUE_APP_API_BASE ? `${process.env.VUE_APP_API_BASE}/media/` : 'http://localhost:8000/media/';
+const API_BASE = process.env.VUE_APP_API_BASE || '/api';
 
 export default {
-  components: { CommentItem, CommentForm, EasyLightbox },
+  components: { CommentForm, CommentItem },
   setup() {
     const store = useStore();
-    const visible = ref(false);
-    const lightboxUrl = ref('');
-    const showReplyForm = ref({});
+    const ordering = ref('-created_at');
+    const ws = ref(null);
 
-    // Синхронізація ordering з модулем
-    const ordering = computed({
-      get: () => store.state.comments.ordering,
-      set: (val) => store.commit('comments/SET_ORDERING', val),
-    });
+    const comments = computed(() => store.state.comments?.comments || []);
+    const pagination = computed(() => store.state.comments?.pagination || { previous: null, next: null });
+    const currentPage = computed(() => store.state.comments?.currentPage || 1);
 
-    // Доступ до comments через модуль
-    const comments = computed(() => {
-      const data = store.state.comments?.comments || [];
-      console.log('Computed comments:', data); // Дебаг
-      return data;
-    });
-
-    // Пагінація з модуля
-    const pagination = computed(() => store.state.comments?.pagination || { next: null, previous: null });
-
-    let ws = null;
-    const connectWebSocket = () => {
-      ws = new WebSocket(WS_BASE);
-      ws.onopen = () => console.log('WebSocket connected');
-      ws.onmessage = event => {
-        const data = JSON.parse(event.data);
-        console.log('WebSocket message received:', data); // Лог для дебагу
-        if (data.type === 'new_comment') handleIncomingComment(data.comment);
-      };
-      ws.onclose = () => {
-        console.log('WebSocket closed, reconnecting...');
-        setTimeout(connectWebSocket, 1000);
-      };
-      ws.onerror = err => console.error('WebSocket error:', err);
+    const fetchComments = async () => {
+      console.log('Fetching comments for page:', currentPage.value);
+      await store.dispatch('comments/fetchComments', {
+        baseUrl: API_BASE,
+        page: currentPage.value,
+      });
     };
 
-    const handleIncomingComment = (newComment) => {
-  console.log('Handling incoming comment:', newComment);
-  console.log('Comment ID:', newComment.id, 'Parent:', newComment.parent);
-  console.log('Existing comments:', store.state.comments.comments);
+    const changePage = async (page) => {
+      console.log('Changing page to:', page);
+      await store.dispatch('comments/changePage', {
+        baseUrl: API_BASE,
+        page,
+      });
+    };
 
-  // Ініціалізуємо comments, якщо він ще не існує
-  if (!store.state.comments?.comments) {
-    store.commit('comments/SET_COMMENTS', []);
-  }
-
-  const commentsArray = store.state.comments.comments || [];
-  const existing = commentsArray.find(
-    c => c.tempId === newComment.tempId || c.id === newComment.id
-  );
-
-  if (existing) {
-    console.log('Updating existing comment with tempId:', existing.tempId, 'to ID:', newComment.id);
-    store.commit('comments/UPDATE_COMMENT', { tempId: newComment.tempId, updatedComment: newComment });
-  } else {
-    console.log('Adding new comment:', newComment);
-    if (newComment.parent) {
-      store.commit('comments/ADD_REPLY', { parentId: newComment.parent, reply: newComment });
-    } else {
-      store.commit('comments/ADD_COMMENT', newComment);
-    }
-  }
-};
-
-    const handleCommentSubmitted = ({ comment, parentId }) => {
+    const handleCommentSubmitted = ({ parentId, comment }) => {
       console.log('Comment submitted:', comment, 'Parent:', parentId);
       if (parentId) {
         store.commit('comments/ADD_REPLY', { parentId, reply: comment });
@@ -170,47 +85,67 @@ export default {
       }
     };
 
-    const changePage = dir => {
-      const current = store.state.comments.currentPage || 1;
-      const page = dir === 'next' ? current + 1 : current - 1;
-      store.dispatch('comments/fetchComments', { baseUrl: API_BASE, page });
-    };
+    const handleIncomingComment = (newComment) => {
+      console.log('Handling incoming comment:', newComment);
+      console.log('Comment ID:', newComment.id, 'Parent:', newComment.parent);
+      console.log('Existing comments:', store.state.comments.comments);
 
-    const changeOrdering = field => {
-      let newOrder = field || ordering.value;
-      if (ordering.value === field) newOrder = field.startsWith('-') ? field.slice(1) : `-${field}`;
-      ordering.value = newOrder; // Автоматично через computed setter
-      store.dispatch('comments/fetchComments', { baseUrl: API_BASE });
-    };
+      if (!store.state.comments?.comments) {
+        store.commit('comments/SET_COMMENTS', []);
+      }
 
-    const openLightbox = url => { lightboxUrl.value = url; visible.value = true; };
-    const isTextFile = filePath => filePath?.endsWith('.txt') || false;
-    const getFileUrl = filePath => filePath ? (filePath.startsWith(MEDIA_URL) ? filePath : MEDIA_URL + filePath) : '';
-    const formatDate = dateStr => new Date(dateStr).toLocaleString();
+      const commentsArray = store.state.comments.comments || [];
+      const existing = commentsArray.find(
+        c => c.tempId === newComment.tempId || c.id === newComment.id
+      );
+
+      if (existing) {
+        console.log('Updating existing comment with tempId:', existing.tempId, 'to ID:', newComment.id);
+        store.commit('comments/UPDATE_COMMENT', { tempId: newComment.tempId, updatedComment: newComment });
+      } else {
+        console.log('Adding new comment:', newComment);
+        if (newComment.parent) {
+          store.commit('comments/ADD_REPLY', { parentId: newComment.parent, reply: newComment });
+        } else {
+          store.commit('comments/ADD_COMMENT', newComment);
+        }
+      }
+    };
 
     onMounted(() => {
-      console.log('Fetching comments on mount');
-      store.dispatch('comments/fetchComments', { baseUrl: API_BASE });
-      connectWebSocket();
+      console.log('CommentList mounted');
+      fetchComments();
+
+      const wsUrl = API_BASE.replace('http', 'ws') + '/ws/comments/';
+      console.log('Connecting to WebSocket:', wsUrl);
+      ws.value = new WebSocket(wsUrl);
+
+      ws.value.onopen = () => console.log('WebSocket connected');
+      ws.value.onmessage = event => {
+        const data = JSON.parse(event.data);
+        console.log('WebSocket message received:', data);
+        console.log('Comment ID:', data.comment?.id, 'Parent:', data.comment?.parent);
+        if (data.type === 'new_comment') handleIncomingComment(data.comment);
+      };
+      ws.value.onerror = error => console.error('WebSocket error:', error);
+      ws.value.onclose = () => console.log('WebSocket disconnected');
     });
 
-    onUnmounted(() => { if (ws) ws.close(); });
+    onUnmounted(() => {
+      if (ws.value) {
+        ws.value.close();
+        console.log('WebSocket closed');
+      }
+    });
 
     return {
       comments,
-      pagination,
       ordering,
+      pagination,
+      currentPage,
+      fetchComments,
       changePage,
-      changeOrdering,
-      handleAddReply: ({ parentId, reply }) => store.commit('comments/ADD_REPLY', { parentId, reply }),
       handleCommentSubmitted,
-      visible,
-      lightboxUrl,
-      openLightbox,
-      isTextFile,
-      getFileUrl,
-      formatDate,
-      showReplyForm,
     };
   },
 };
