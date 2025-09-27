@@ -74,6 +74,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'comments_project.wsgi.application'
 ASGI_APPLICATION = 'comments_project.asgi.application'
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 CSRF_COOKIE_NAME = "csrftoken"
 CSRF_COOKIE_HTTPONLY = False
