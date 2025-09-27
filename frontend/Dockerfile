@@ -13,6 +13,4 @@ COPY nginx.conf.template /etc/nginx/conf.d/nginx.conf.template
 
 # Підстановка BACKEND_URL і PORT у конфіг
 ENV PORT=8080
-EXPOSE $PORT   # Експозимо динамічний порт
-
 CMD envsubst '$BACKEND_URL ${PORT}' < /etc/nginx/conf.d/nginx.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'
