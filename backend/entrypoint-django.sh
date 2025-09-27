@@ -22,10 +22,16 @@ until pg_isready -h postgres -U user -d comments_db; do
     fi
 done
 
+# Перевірка REDIS_URL
+if [ -z "$REDIS_URL" ]; then
+    echo "REDIS_URL is not set. Exiting."
+    exit 1
+fi
+
 # Чекаємо, поки Redis буде доступним (максимум 30 спроб)
-echo "Waiting for Redis..."
+echo "Waiting for Redis at $REDIS_URL..."
 counter=0
-until redis-cli -h redis ping | grep -q PONG; do
+until timeout 3 redis-cli -u "$REDIS_URL" ping | grep -q PONG; do
     echo "Redis is unavailable - sleeping"
     sleep 2
     counter=$((counter+1))
@@ -34,6 +40,7 @@ until redis-cli -h redis ping | grep -q PONG; do
         exit 1
     fi
 done
+echo "Redis ready!"
 
 # Виконуємо міграції
 echo "Applying Django migrations..."
