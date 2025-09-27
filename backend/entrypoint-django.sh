@@ -55,4 +55,4 @@ fi
 
 # Запуск Daphne
 pip install gunicorn  # Додай в requirements.txt якщо немає
-exec gunicorn --bind 0.0.0.0:$PORT --workers 2 comments_project.wsgi:application
+exec gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 90 --log-level debug --access-logfile - --error-logfile - comments_project.wsgi:application
