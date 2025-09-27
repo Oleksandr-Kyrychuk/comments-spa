@@ -19,7 +19,7 @@ RUN pip install daphne
 
 COPY . .
 
-RUN python manage.py collectstatic --noinput
+RUN python comments_project/manage.py collectstatic --noinput
 
 # Створюємо непрівільованого користувача
 RUN useradd -m -u 1000 appuser
