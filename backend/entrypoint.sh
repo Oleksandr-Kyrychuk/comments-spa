@@ -1,21 +1,43 @@
-#!/bin/sh
+#!/bin/bash
 
-# Чекаємо, поки база даних стане доступною
-echo "Waiting for database..."
+# Додаємо PYTHONPATH для забезпечення правильного імпорту
+export PYTHONPATH=/app/comments_project:$PYTHONPATH
+
+# Початкова затримка для ініціалізації PostgreSQL
+echo "Waiting for PostgreSQL initialization..."
 sleep 5
 
-# Чекаємо, поки Redis стане доступним
-echo "Waiting for Redis..."
-while ! nc -z redis 6379; do
-  echo "Redis is unavailable - sleeping"
-  sleep 1
+# Чекаємо, поки PostgreSQL буде доступним (максимум 30 спроб)
+echo "Waiting for PostgreSQL..."
+export PGPASSWORD=user_password
+counter=0
+max_attempts=30
+until pg_isready -h postgres -U user -d comments_db; do
+    echo "PostgreSQL is unavailable - sleeping"
+    sleep 2
+    counter=$((counter+1))
+    if [ $counter -ge $max_attempts ]; then
+        echo "PostgreSQL is still unavailable after $max_attempts attempts, exiting"
+        exit 1
+    fi
 done
 
-# Робимо міграції
-echo "Applying Django migrations..."
-python manage.py makemigrations --noinput
-python manage.py migrate --noinput
+# Чекаємо, поки Redis буде доступним (максимум 30 спроб)
+echo "Waiting for Redis..."
+counter=0
+until redis-cli -h redis ping | grep -q PONG; do
+    echo "Redis is unavailable - sleeping"
+    sleep 2
+    counter=$((counter+1))
+    if [ $counter -ge $max_attempts ]; then
+        echo "Redis is still unavailable after $max_attempts attempts, exiting"
+        exit 1
+    fi
+done
 
-# Запускаємо Daphne
-echo "Starting Daphne server..."
-exec daphne -b 0.0.0.0 -p 8000 comments_project.asgi:application
+# Виконуємо міграції
+echo "Applying Django migrations..."
+python /app/comments_project/manage.py migrate --noinput
+
+# Виконуємо команду, передану через CMD у docker-compose.yml
+exec "$@"

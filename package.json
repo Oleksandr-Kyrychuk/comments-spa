@@ -1,5 +1,9 @@
 {
   "dependencies": {
-    "md5": "^2.3.0"
+    "md5": "^2.3.0",
+    "vuex-persistedstate": "^4.1.0"
+  },
+  "devDependencies": {
+    "serve": "^14.2.5"
   }
 }
