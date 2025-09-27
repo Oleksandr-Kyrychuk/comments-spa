@@ -13,4 +13,4 @@ COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf.template /etc/nginx/conf.d/nginx.conf.template
 
 # підстановка BACKEND_URL у конфіг
-CMD envsubst '$BACKEND_URL' < /etc/nginx/conf.d/nginx.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'
+CMD envsubst '$BACKEND_URL $PORT' < /etc/nginx/conf.d/nginx.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'
