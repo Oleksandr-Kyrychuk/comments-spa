@@ -15,7 +15,7 @@ def health_check(request):
     return HttpResponse("OK", status=200)
 
 urlpatterns = [
-    path('', health_check, name='health-check'),  # Додаємо простий маршрут для healthcheck
+    path('', health_check, name='health-check'),
     path('admin/', admin.site.urls),
     path('csrf-cookie/', csrf_cookie, name='csrf_cookie'),
     path('api/', include('comments.urls')),
@@ -23,4 +23,4 @@ urlpatterns = [
     path('captcha/refresh/', captcha_refresh, name='captcha-refresh-get'),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

@@ -16,6 +16,7 @@ COPY requirements.txt .
 # Встановлення залежностей Python
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install daphne
+RUN python manage.py collectstatic --noinput
 
 COPY . .
 
