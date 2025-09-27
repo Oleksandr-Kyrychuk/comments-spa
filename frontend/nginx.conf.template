@@ -25,8 +25,8 @@ server {
     }
 
     # WebSocket
-    location /ws/ {
-        proxy_pass ${BACKEND_URL};
+    location /api/ws/ {
+        proxy_pass ${BACKEND_URL}/ws/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
