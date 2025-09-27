@@ -9,7 +9,10 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-f%gv&0^mpfxzy!)f^fuedbu%3ok8y#6%1#6@hmg9+17&srv9ep')
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS','comments-spa-production-d975.up.railway.app', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = os.getenv(
+    'ALLOWED_HOSTS',
+    'comments-spa-production-d975.up.railway.app,localhost,127.0.0.1'
+).split(',')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -38,16 +41,17 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS','comments-spa-production-d975.up.railway.app', 'http://localhost:8080,http://127.0.0.1:8080,http://localhost:8000,http://127.0.0.1:8000').split(',')
-
+CORS_ALLOWED_ORIGINS = os.getenv(
+    'CORS_ALLOWED_ORIGINS',
+    'comments-spa-production-d975.up.railway.app,http://localhost:8080,http://127.0.0.1:8080,http://localhost:8000,http://127.0.0.1:8000'
+).split(',')
 # Проксі Railway передає HTTPS через X-Forwarded-Proto
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # CSRF trusted origins з ENV
 CSRF_TRUSTED_ORIGINS = os.getenv(
     'CSRF_TRUSTED_ORIGINS',
-'comments-spa-production-d975.up.railway.app',
-    'http://localhost:8000,http://127.0.0.1:8000'
+    'comments-spa-production-d975.up.railway.app,http://localhost:8000,http://127.0.0.1:8000'
 ).split(',')
 
 ROOT_URLCONF = 'comments_project.urls'
