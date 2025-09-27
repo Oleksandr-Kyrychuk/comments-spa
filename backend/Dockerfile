@@ -31,3 +31,9 @@ RUN chown -R appuser:appuser /app
 
 # Перемикаємося на непрівільованого користувача
 USER appuser
+
+
+
+# Додаємо ENTRYPOINT та CMD
+ENTRYPOINT ["/app/entrypoint-django.sh"]
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "comments_project.asgi:application"]
