@@ -6,11 +6,13 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-
 # Етап 2: Nginx для статичних файлів
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf.template /etc/nginx/conf.d/nginx.conf.template
 
-# підстановка BACKEND_URL у конфіг
-CMD envsubst '$BACKEND_URL' < /etc/nginx/conf.d/nginx.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'
+# Підстановка BACKEND_URL і PORT у конфіг
+ENV PORT=8080
+EXPOSE $PORT   # Експозимо динамічний порт
+
+CMD envsubst '$BACKEND_URL ${PORT}' < /etc/nginx/conf.d/nginx.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'

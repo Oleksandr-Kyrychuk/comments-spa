@@ -1,5 +1,5 @@
 server {
-    listen 80;
+    listen ${PORT:-80};  # Змінено з '80' на '${PORT:-80}' — використовує $PORT, fallback на 80
     server_name localhost;
 
     error_log /var/log/nginx/error.log debug;
