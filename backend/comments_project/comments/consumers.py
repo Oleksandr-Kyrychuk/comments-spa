@@ -15,9 +15,14 @@ class CommentConsumer(AsyncWebsocketConsumer):
         logger.info(f"WebSocket disconnected: {self.channel_name}, code: {close_code}")
 
     async def receive(self, text_data):
-        logger.info(f"WebSocket received data: {text_data}")
-        # Optionally handle incoming messages from clients
-        pass
+        data = json.loads(text_data)
+        await self.channel_layer.group_send(
+            "comments_group",
+            {
+                "type": "new_comment",
+                "comment": data
+            }
+        )
 
     async def new_comment(self, event):
         try:
