@@ -1,14 +1,16 @@
 #!/bin/bash
 set -e
 
+# Вказуємо Python шлях і settings
 export PYTHONPATH=/app/comments_project:$PYTHONPATH
 export DJANGO_SETTINGS_MODULE=comments_project.settings
 
-# PostgreSQL
+# --- PostgreSQL ---
 echo "Waiting for PostgreSQL..."
 export PGPASSWORD="${POSTGRES_PASSWORD:-user_password}"
 counter=0
 max_attempts=30
+
 until pg_isready -h "${POSTGRES_HOST:-postgres}" -U "${POSTGRES_USER:-user}" -d "${POSTGRES_DB:-comments_db}"; do
     echo "PostgreSQL is unavailable - sleeping"
     sleep 2
@@ -20,7 +22,7 @@ until pg_isready -h "${POSTGRES_HOST:-postgres}" -U "${POSTGRES_USER:-user}" -d 
 done
 echo "PostgreSQL ready!"
 
-# Redis
+# --- Redis ---
 if [ -z "$REDIS_URL" ]; then
     echo "REDIS_URL is not set. Exiting."
     exit 1
@@ -39,14 +41,5 @@ until redis-cli -u "$REDIS_URL" ping | grep -q PONG; do
 done
 echo "Redis ready!"
 
-# Для безпечного підхоплення DATABASE_URL у Django (якщо використовуєш dj-database-url)
-if [ -n "$DATABASE_URL" ]; then
-    python - <<END
-import os, dj_database_url
-from django.conf import settings
-settings.DATABASES = {"default": dj_database_url.parse(os.environ["DATABASE_URL"])}
-END
-fi
-
-# Запуск Celery або іншої команди
+# --- Запуск CMD (Celery / Django / інше) ---
 exec "$@"
