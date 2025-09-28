@@ -11,7 +11,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-f%gv&0^mpfxzy!)f^fuedbu%3o
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 ALLOWED_HOSTS = os.getenv(
     'ALLOWED_HOSTS',
-    'comments-spa-production-d975.up.railway.app,localhost,127.0.0.1'
+    'balanced-reprieve-production-d814.up.railway.app,comments-spa-production-56a1.up.railway.app,localhost,127.0.0.1'
 ).split(',')
 
 INSTALLED_APPS = [
