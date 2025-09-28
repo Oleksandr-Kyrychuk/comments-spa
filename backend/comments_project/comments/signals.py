@@ -6,6 +6,7 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 import logging
 from .tasks import save_comment
+from .serializers import CommentSerializer
 
 logger = logging.getLogger(__name__)
 

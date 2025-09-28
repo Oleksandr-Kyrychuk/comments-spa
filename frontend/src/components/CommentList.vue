@@ -118,7 +118,7 @@ export default {
       console.log('CommentList mounted');
       fetchComments();
 
-const wsUrl = 'wss://' + location.host + '/api/ws/comments/';
+const wsUrl = 'wss://' + location.host + '/ws/comments/';
       console.log('Connecting to WebSocket:', wsUrl);
       ws.value = new WebSocket(wsUrl);
 
