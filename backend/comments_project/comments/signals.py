@@ -15,22 +15,15 @@ def comment_created(sender, instance, created, **kwargs):
         try:
             with transaction.atomic():
                 channel_layer = get_channel_layer()
+                # Fix: Serialize here if keeping this, or remove entirely since task does it
+                serialized_comment = CommentSerializer(instance).data  # Add this
                 async_to_sync(channel_layer.group_send)(
                     'comments_group',
                     {
                         'type': 'new_comment',
-                        'comment_id': instance.id
+                        'comment': serialized_comment  # Change to 'comment'
                     }
                 )
                 logger.info(f"Signal sent for new comment ID: {instance.id}")
         except Exception as e:
             logger.error(f"Error in comment_created signal for comment ID {instance.id}: {str(e)}")
-
-@receiver(post_save, sender=Comment)
-def comment_post_save(sender, instance, created, **kwargs):
-    if created:
-        try:
-            logger.info(f"Triggering save_comment task for comment ID: {instance.id}")
-            save_comment.delay(instance.id)
-        except Exception as e:
-            logger.error(f"Error triggering save_comment task for comment ID {instance.id}: {str(e)}")
