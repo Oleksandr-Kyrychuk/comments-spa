@@ -11,7 +11,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-f%gv&0^mpfxzy!)f^fuedbu%3o
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 ALLOWED_HOSTS = os.getenv(
     'ALLOWED_HOSTS',
-    'balanced-reprieve-production-d814.up.railway.app,comments-spa-production-56a1.up.railway.app,localhost,127.0.0.1'
+    'comments-spa-production-d975.up.railway.app,localhost,127.0.0.1'
 ).split(',')
 
 INSTALLED_APPS = [
@@ -45,7 +45,6 @@ MIDDLEWARE = [
 CORS_ALLOWED_ORIGINS = [
     'https://balanced-reprieve-production-d814.up.railway.app',
     'https://comments-spa-production-56a1.up.railway.app',
-'wss://balanced-reprieve-production-d814.up.railway.app',
 ]
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
@@ -53,7 +52,6 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 CSRF_TRUSTED_ORIGINS = [
     'https://balanced-reprieve-production-d814.up.railway.app',
     'https://comments-spa-production-56a1.up.railway.app',
-'wss://balanced-reprieve-production-d814.up.railway.app',
 ]
 
 ROOT_URLCONF = 'comments_project.urls'
