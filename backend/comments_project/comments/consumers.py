@@ -20,11 +20,12 @@ class CommentConsumer(AsyncWebsocketConsumer):
         pass
 
     async def new_comment(self, event):
+        logger.info(f"Received event in CommentConsumer: {event}")
         try:
-            logger.info(f"Sending WebSocket message: {event}")
             await self.send(text_data=json.dumps({
                 'type': 'new_comment',
                 'comment': event['comment']
             }))
+            logger.info(f"Sent WebSocket message for comment: {event['comment']}")
         except Exception as e:
             logger.error(f"Error sending WebSocket message: {str(e)}")
