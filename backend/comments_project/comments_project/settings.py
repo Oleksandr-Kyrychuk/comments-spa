@@ -45,6 +45,7 @@ MIDDLEWARE = [
 CORS_ALLOWED_ORIGINS = [
     'https://balanced-reprieve-production-d814.up.railway.app',
     'https://comments-spa-production-56a1.up.railway.app',
+'wss://balanced-reprieve-production-d814.up.railway.app',
 ]
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
@@ -52,6 +53,7 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 CSRF_TRUSTED_ORIGINS = [
     'https://balanced-reprieve-production-d814.up.railway.app',
     'https://comments-spa-production-56a1.up.railway.app',
+'wss://balanced-reprieve-production-d814.up.railway.app',
 ]
 
 ROOT_URLCONF = 'comments_project.urls'
