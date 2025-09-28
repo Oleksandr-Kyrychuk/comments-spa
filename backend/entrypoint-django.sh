@@ -52,6 +52,6 @@ if [ -z "$PORT" ]; then
     echo "PORT is not set by Railway. Exiting."
     exit 1
 fi
-
+celery -A comments_project worker -l info &
 # Запуск Daphne
 exec daphne -b [::] -p $PORT comments_project.asgi:application
