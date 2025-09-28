@@ -4,7 +4,7 @@ set -e
 # Вказуємо Python шлях і settings
 export PYTHONPATH=/app/comments_project:$PYTHONPATH
 export DJANGO_SETTINGS_MODULE=comments_project.settings
-
+export DATABASE_URL=$DATABASE_URL
 # --- PostgreSQL ---
 echo "Waiting for PostgreSQL..."
 export PGPASSWORD="${POSTGRES_PASSWORD:-user_password}"

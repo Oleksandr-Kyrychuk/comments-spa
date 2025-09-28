@@ -8,10 +8,10 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-f%gv&0^mpfxzy!)f^fuedbu%3ok8y#6%1#6@hmg9+17&srv9ep')
-DEBUG = os.getenv('DEBUG', 'True') == 'True'
+DEBUG = os.getenv('DEBUG', 'False') == 'True'  # Вимкніть DEBUG у продакшені
 ALLOWED_HOSTS = os.getenv(
     'ALLOWED_HOSTS',
-    'comments-spa-production-d975.up.railway.app,localhost,127.0.0.1'
+    'balanced-reprieve-production-d814.up.railway.app,comments-spa-production-d975.up.railway.app,comments-spa-production-56a1.up.railway.app,localhost,127.0.0.1'
 ).split(',')
 
 INSTALLED_APPS = [
@@ -41,52 +41,29 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# Об'єднані CORS і CSRF налаштування для локальної, Docker і Production
 CORS_ALLOWED_ORIGINS = [
     'https://balanced-reprieve-production-d814.up.railway.app',
     'https://comments-spa-production-56a1.up.railway.app',
+    'https://comments-spa-production-d975.up.railway.app',
 ]
-
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-
 CSRF_TRUSTED_ORIGINS = [
     'https://balanced-reprieve-production-d814.up.railway.app',
     'https://comments-spa-production-56a1.up.railway.app',
+    'https://comments-spa-production-d975.up.railway.app',
 ]
-
-ROOT_URLCONF = 'comments_project.urls'
-
-TEMPLATES = [
-    {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
-            ],
-        },
-    },
-]
-
-WSGI_APPLICATION = 'comments_project.wsgi.application'
-ASGI_APPLICATION = 'comments_project.asgi.application'
-CORS_ALLOW_ALL_ORIGINS = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 CORS_ALLOW_CREDENTIALS = True
 CSRF_COOKIE_NAME = "csrftoken"
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = 'Lax'
-CSRF_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = True  # Увімкніть для продакшену
 
+# DATABASES
+DATABASE_URL = os.getenv('DATABASE_URL')
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable not set")
 DATABASES = {
-    'default': dj_database_url.config(
-        default=os.getenv('DATABASE_URL'),
-        conn_max_age=600,
-        conn_health_checks=True
-    )
+    'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600, conn_health_checks=True)
 }
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -107,11 +84,14 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Redis і Channels
+REDIS_URL = os.getenv('REDIS_URL', 'redis://default:TjhctXuhkoZyzdsMrlDfLRWQyNvntsyp@redis.railway.internal:6379')
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [os.getenv('REDIS_URL', 'redis://redis:6379/0')],
+            "hosts": [REDIS_URL],
+            "symmetric_encryption_keys": [SECRET_KEY],
         },
     },
 }
@@ -138,16 +118,18 @@ CAPTCHA_TIMEOUT = 5
 CAPTCHA_NOISE_FUNCTIONS = ('captcha.helpers.noise_dots',)
 CAPTCHA_FILTER_FUNCTIONS = ()
 
-CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://redis:6379/0')
-CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://redis:6379/0')
+# Celery
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 
+# Cache
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': os.getenv('REDIS_URL', 'redis://redis:6379/0'),
+        'LOCATION': REDIS_URL,
         'OPTIONS': {'CLIENT_CLASS': 'django_redis.client.DefaultClient'}
     }
 }
@@ -171,12 +153,12 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': False,
         },
-        'django.request': {  # Логи для HTTP-запитів
+        'django.request': {
             'handlers': ['console'],
             'level': 'DEBUG',
             'propagate': False,
         },
-        'django.server': {  # Логи для Gunicorn
+        'django.server': {
             'handlers': ['console'],
             'level': 'DEBUG',
             'propagate': False,
@@ -188,5 +170,3 @@ LOGGING = {
         },
     },
 }
-
-print(os.getenv('REDIS_URL'))
