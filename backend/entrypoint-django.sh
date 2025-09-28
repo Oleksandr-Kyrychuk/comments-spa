@@ -54,4 +54,4 @@ if [ -z "$PORT" ]; then
 fi
 
 # Запуск Daphne
-exec daphne -b 0.0.0.0 -p $PORT comments_project.asgi:application
+exec daphne -b [::] -p $PORT comments_project.asgi:application
