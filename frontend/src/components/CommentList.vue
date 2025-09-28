@@ -115,31 +115,34 @@ export default {
     };
 
     onMounted(() => {
-      console.log('CommentList mounted');
-      fetchComments();
+    console.log('CommentList mounted on device:', navigator.userAgent, 'at:', new Date().toISOString());
+    fetchComments();
 
-const wsUrl = 'wss://' + location.host + '/api/ws/comments/';
-      console.log('Connecting to WebSocket:', wsUrl);
-      ws.value = new WebSocket(wsUrl);
+    const wsUrl = 'wss://' + location.host + '/api/ws/comments/';
+    console.log('Connecting to WebSocket:', wsUrl, 'on device:', navigator.userAgent);
+    ws.value = new WebSocket(wsUrl);
 
-      ws.value.onopen = () => {
-    console.log('WebSocket connected on device:', navigator.userAgent);
-};
-      ws.value.onmessage = event => {
-    console.log('WebSocket message received on device:', navigator.userAgent);
-    const data = JSON.parse(event.data);
-    console.log('Received data:', data);
-    console.log('Comment ID:', data.comment?.id, 'Parent:', data.comment?.parent);
-    if (data.type === 'new_comment') {
-        console.log('Processing new comment:', data.comment);
-        handleIncomingComment(data.comment);
-    } else {
-        console.log('Unknown message type:', data.type);
-    }
-};
-      ws.value.onerror = error => console.error('WebSocket error:', error);
-      ws.value.onclose = () => console.log('WebSocket disconnected');
-    });
+    ws.value.onopen = () => {
+        console.log('WebSocket connected on device:', navigator.userAgent, 'at:', new Date().toISOString());
+    };
+    ws.value.onmessage = event => {
+        console.log('WebSocket message received on device:', navigator.userAgent, 'at:', new Date().toISOString());
+        const data = JSON.parse(event.data);
+        console.log('Received data:', data);
+        if (data.type === 'new_comment') {
+            console.log('Processing new comment:', data.comment);
+            handleIncomingComment(data.comment);
+        } else {
+            console.log('Unknown message type:', data.type);
+        }
+    };
+    ws.value.onerror = error => {
+        console.error('WebSocket error on device:', navigator.userAgent, 'Error:', error);
+    };
+    ws.value.onclose = () => {
+        console.log('WebSocket disconnected on device:', navigator.userAgent, 'at:', new Date().toISOString());
+    };
+});
 
     onUnmounted(() => {
       if (ws.value) {
