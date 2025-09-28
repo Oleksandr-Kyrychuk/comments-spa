@@ -130,9 +130,6 @@ class CommentSerializer(serializers.ModelSerializer):
         )
         validated_data['user'] = user
         instance = super().create(validated_data)
-        if instance.file:
-            instance.file = instance.file.name
-            instance.save()
         return instance
 
     def get_replies(self, obj):
