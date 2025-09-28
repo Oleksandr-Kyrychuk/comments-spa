@@ -29,6 +29,7 @@ RUN useradd -m -u 1000 appuser
 
 # Додаємо права на виконання скриптів
 RUN chmod +x /app/entrypoint-django.sh
+COPY entrypoint-celery.sh /app/entrypoint-celery.sh
 RUN chmod +x /app/entrypoint-celery.sh
 
 # Змінюємо власника файлів на непривілейованого користувача
