@@ -20,9 +20,12 @@ RUN pip install daphne
 # Копіюємо весь код проєкту
 COPY . .
 
-# Збираємо статичні файли
+# Створюємо директорію для статичних файлів
 RUN mkdir -p /app/comments_project/static
-RUN python comments_project/manage.py collectstatic --noinput
+
+# Виконуємо collectstatic тільки якщо це web-service (PORT існує)
+ARG PORT
+RUN if [ -n "$PORT" ]; then python comments_project/manage.py collectstatic --noinput; fi
 
 # Створюємо непривілейованого користувача
 RUN useradd -m -u 1000 appuser
