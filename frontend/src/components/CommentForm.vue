@@ -1,64 +1,64 @@
 <template>
-  <div class="form-container">
+  <div class="p-6 bg-gray-100 rounded-lg">
     <form @submit.prevent="submitForm">
       <!-- Username -->
-      <div class="form-group">
-        <label>Username</label>
+      <div class="mb-4">
+        <label class="block text-sm font-medium mb-1">Ім'я користувача</label>
         <input
           v-model="form.user_name"
-          placeholder="Letters and digits only"
+          placeholder="Тільки літери та цифри"
           required
           pattern="^[a-zA-Z0-9]+$"
-          class="form-control"
+          class="w-full p-2 border rounded"
         />
       </div>
 
       <!-- Email -->
-      <div class="form-group">
-        <label>Email</label>
+      <div class="mb-4">
+        <label class="block text-sm font-medium mb-1">Email</label>
         <input
           v-model="form.email"
           type="email"
-          placeholder="Enter valid email"
+          placeholder="Введіть правильний email"
           required
-          class="form-control"
+          class="w-full p-2 border rounded"
         />
       </div>
 
       <!-- Home Page -->
-      <div class="form-group">
-        <label>Home Page (optional)</label>
+      <div class="mb-4">
+        <label class="block text-sm font-medium mb-1">Домашня сторінка (опціонально)</label>
         <input
           v-model="form.home_page"
           type="url"
           placeholder="https://example.com"
-          class="form-control"
+          class="w-full p-2 border rounded"
         />
       </div>
 
       <!-- Comment -->
-      <div class="form-group">
-        <label>Comment</label>
-        <div class="tag-panel">
-          <button type="button" @click="insertTag('i')" class="btn btn-secondary">[i]</button>
-          <button type="button" @click="insertTag('strong')" class="btn btn-secondary">[strong]</button>
-          <button type="button" @click="insertTag('code')" class="btn btn-secondary">[code]</button>
-          <button type="button" @click="insertTag('a')" class="btn btn-secondary">[a]</button>
+      <div class="mb-4">
+        <label class="block text-sm font-medium mb-1">Коментар</label>
+        <div class="flex space-x-2 mb-2">
+          <button type="button" @click="insertTag('i')" class="bg-gray-500 text-white px-2 py-1 rounded">[i]</button>
+          <button type="button" @click="insertTag('strong')" class="bg-gray-500 text-white px-2 py-1 rounded">[strong]</button>
+          <button type="button" @click="insertTag('code')" class="bg-gray-500 text-white px-2 py-1 rounded">[code]</button>
+          <button type="button" @click="insertTag('a')" class="bg-gray-500 text-white px-2 py-1 rounded">[a]</button>
         </div>
         <textarea
           v-model="form.text"
-          placeholder="Text (supports <a>, <code>, <i>, <strong>)"
+          placeholder="Текст (підтримує <a>, <code>, <i>, <strong>)"
           required
           maxlength="5000"
-          class="form-control"
+          class="w-full p-2 border rounded h-32"
         ></textarea>
       </div>
 
       <!-- Parent Comment -->
-      <div class="form-group" v-if="!localParentId">
-        <label>Parent Comment (optional)</label>
-        <select v-model="form.parent" class="form-control">
-          <option value="">No parent</option>
+      <div class="mb-4" v-if="!localParentId">
+        <label class="block text-sm font-medium mb-1">Батьківський коментар (опціонально)</label>
+        <select v-model="form.parent" class="w-full p-2 border rounded">
+          <option value="">Без батьківського</option>
           <option v-for="comment in parentComments" :key="comment.id" :value="comment.id">
             {{ comment.user?.username || comment.user_name }} ({{ formatDate(comment.created_at) }})
           </option>
@@ -66,35 +66,35 @@
       </div>
 
       <!-- File Upload -->
-      <div class="form-group">
-        <label>Upload File (JPG/GIF/PNG or TXT)</label>
-        <input type="file" @change="handleFile" class="form-control" />
+      <div class="mb-4">
+        <label class="block text-sm font-medium mb-1">Завантажити файл (JPG/GIF/PNG або TXT)</label>
+        <input type="file" @change="handleFile" class="w-full p-2 border rounded" />
       </div>
 
       <!-- CAPTCHA -->
-      <div class="form-group">
-        <label>CAPTCHA</label>
-        <img :src="captchaImage" alt="CAPTCHA" class="captcha-image" />
-        <button type="button" @click="refreshCaptcha" class="btn btn-secondary">Refresh CAPTCHA</button>
+      <div class="mb-4">
+        <label class="block text-sm font-medium mb-1">CAPTCHA</label>
+        <img :src="captchaImage" alt="CAPTCHA" class="max-w-xs mb-2" />
+        <button type="button" @click="refreshCaptcha" class="bg-gray-500 text-white px-2 py-1 rounded mb-2">Оновити CAPTCHA</button>
         <input
           v-model="form.captcha_1"
-          placeholder="Enter CAPTCHA code"
+          placeholder="Введіть код CAPTCHA"
           required
-          class="form-control"
+          class="w-full p-2 border rounded"
         />
         <input v-model="form.captcha_0" type="hidden" />
       </div>
 
       <!-- Preview -->
-      <div class="form-group">
-        <button type="button" @click="previewText" class="btn btn-info">Preview</button>
-        <div v-if="preview" class="preview-box" v-html="preview"></div>
+      <div class="mb-4">
+        <button type="button" @click="previewText" class="bg-blue-500 text-white px-4 py-2 rounded">Попередній перегляд</button>
+        <div v-if="preview" class="border p-4 mt-2 rounded bg-white" v-html="preview"></div>
       </div>
 
       <!-- Submit -->
-      <div class="form-group">
-        <p v-if="error" class="error">{{ error }}</p>
-        <button type="submit" class="btn btn-primary">Submit</button>
+      <div class="mb-4">
+        <p v-if="error" class="text-red-500">{{ error }}</p>
+        <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">Відправити</button>
       </div>
     </form>
   </div>
@@ -407,12 +407,4 @@ console.log('CAPTCHA response:', data);
 </script>
 
 <style scoped>
-.form-container { padding: 20px; }
-.form-group { margin-bottom: 15px; }
-.form-control { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
-.tag-panel { margin-bottom: 5px; }
-.btn { padding: 5px 10px; margin-right: 5px; }
-.error { color: red; }
-.preview-box { border: 1px solid #ddd; padding: 10px; margin-top: 10px; }
-.captcha-image { max-width: 200px; margin-bottom: 10px; }
 </style>

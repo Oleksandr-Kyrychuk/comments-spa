@@ -1,13 +1,13 @@
 <template>
-  <div class="comment-list">
-    <h2>Comments</h2>
+  <div class="container mx-auto p-6 max-w-4xl">
+    <h2 class="text-2xl font-bold mb-4">Коментарі</h2>
     <CommentForm @submitted="handleCommentSubmitted" />
-    <div class="sort-panel">
-      <label>Sort by:</label>
-      <select v-model="ordering" @change="fetchComments">
-        <option value="-created_at">Newest first</option>
-        <option value="created_at">Oldest first</option>
-        <option value="user__username">Username</option>
+    <div class="flex items-center mb-4">
+      <label class="mr-2">Сортувати за:</label>
+      <select v-model="ordering" @change="fetchComments" class="border rounded p-2">
+        <option value="-created_at">Спочатку нові</option>
+        <option value="created_at">Спочатку старі</option>
+        <option value="user__username">Ім'я користувача</option>
         <option value="user__email">Email</option>
       </select>
     </div>
@@ -21,25 +21,27 @@
       />
     </div>
     <div v-else>
-      <p>No comments yet.</p>
+      <p class="text-red-500">Коментарів поки немає.</p>
     </div>
-    <div class="pagination">
+    <div class="flex justify-between mt-4">
       <button
         :disabled="!pagination.previous"
         @click="changePage(currentPage - 1)"
+        class="bg-blue-500 text-white px-4 py-2 rounded disabled:bg-gray-400"
       >
-        Previous
+        Попередня
       </button>
-      <span>Page {{ currentPage }}</span>
+      <span>Сторінка {{ currentPage }}</span>
       <button
         :disabled="!pagination.next"
         @click="changePage(currentPage + 1)"
+        class="bg-blue-500 text-white px-4 py-2 rounded disabled:bg-gray-400"
       >
-        Next
+        Наступна
       </button>
     </div>
   </div>
-</template>
+</template>>
 
 <script>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
@@ -152,24 +154,4 @@ export default {
 </script>
 
 <style scoped>
-.comment-list-container { padding: 20px; max-width: 1200px; margin: 0 auto; }
-.controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.form-control { padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
-.pagination { display: flex; gap: 10px; }
-.btn { padding: 8px 16px; border: none; border-radius: 4px; background-color: #007bff; color: white; cursor: pointer; }
-.btn:disabled { background-color: #ccc; cursor: not-allowed; }
-.btn-secondary { background-color: #6c757d; }
-.comment-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; background-color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-.comment-table th, .comment-table td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-.comment-table th { background-color: #f8f9fa; font-weight: bold; color: #333; cursor: pointer; }
-.comment-row:hover { background-color: #f1f3f5; }
-.comment-image { max-width: 320px; cursor: pointer; margin-top: 10px; }
-.reply-form { margin-top: 10px; }
-.replies { padding-left: 20px; border-left: 3px solid #ccc; margin-top: 10px; }
-.no-comments { padding: 10px; color: red; }
-@media (max-width: 768px) {
-  .comment-table { display: block; overflow-x: auto; white-space: nowrap; }
-  .comment-table th, .comment-table td { min-width: 100px; }
-  .comment-table td:nth-child(4) { min-width: 300px; }
-}
 </style>
