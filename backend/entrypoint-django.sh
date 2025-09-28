@@ -1,16 +1,12 @@
 #!/bin/bash
-
 # Додаємо PYTHONPATH для забезпечення правильного імпорту
 export PYTHONPATH=/app/comments_project:$PYTHONPATH
-
 echo "PORT=$PORT"
 echo "REDIS_URL=$REDIS_URL"
 echo "DATABASE_URL=$DATABASE_URL"
-
 # Початкова затримка для ініціалізації PostgreSQL
 echo "Waiting for PostgreSQL initialization..."
 sleep 5
-
 # Чекаємо PostgreSQL
 counter=0
 max_attempts=30
@@ -23,13 +19,11 @@ until pg_isready -h postgres -U user -d comments_db; do
         exit 1
     fi
 done
-
 # Перевірка Redis
 if [ -z "$REDIS_URL" ]; then
     echo "REDIS_URL is not set. Exiting."
     exit 1
 fi
-
 echo "Waiting for Redis at $REDIS_URL..."
 counter=0
 until timeout 3 redis-cli -u "$REDIS_URL" ping | grep -q PONG; do
@@ -42,16 +36,14 @@ until timeout 3 redis-cli -u "$REDIS_URL" ping | grep -q PONG; do
     fi
 done
 echo "Redis ready!"
-
 # Міграції
 echo "Applying Django migrations..."
 python /app/comments_project/manage.py migrate --noinput
-
 # Перевірка $PORT
 if [ -z "$PORT" ]; then
     echo "PORT is not set by Railway. Exiting."
     exit 1
 fi
-celery -A comments_project worker -l info &
+
 # Запуск Daphne
 exec daphne -b [::] -p $PORT comments_project.asgi:application
