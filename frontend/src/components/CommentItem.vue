@@ -1,48 +1,48 @@
 <!-- CommentItem.vue -->
 <template>
-  <div class="comment-block" :style="{ marginLeft: level * 20 + 'px' }">
-    <img :src="avatarUrl" class="avatar" alt="Avatar" />
-    <div class="content">
+  <div class="flex mb-4 p-4 border-b border-l-4 border-gray-300" :style="{ marginLeft: level * 20 + 'px' }">
+    <img :src="avatarUrl" class="w-10 h-10 rounded-full mr-3" alt="Avatar" />
+    <div class="flex-1">
       <!-- Reply to parent -->
-      <div v-if="comment.parent_username" class="reply-to">
-        Reply to: <span class="username">{{ comment.parent_username }}</span>
+      <div v-if="comment.parent_username" class="text-sm text-gray-600 italic mb-2">
+        Відповідь для: <span class="text-blue-500">{{ comment.parent_username }}</span>
       </div>
 
       <!-- Header -->
-      <div class="header">
-        <span class="username">{{ comment.user?.username || 'Анонім' }}</span>
-        <span class="time">{{ formatDate(comment.created_at) }}</span>
+      <div class="flex items-center mb-2">
+        <span class="font-bold text-blue-500">{{ comment.user?.username || 'Анонім' }}</span>
+        <span class="text-sm text-gray-500 ml-2">{{ formatDate(comment.created_at) }}</span>
       </div>
 
       <!-- Comment text -->
-      <div class="text" v-html="comment.text"></div>
+      <div class="text-gray-800 mb-2" v-html="comment.text"></div>
 
       <!-- Email & Home Page -->
-      <div v-if="comment.user?.email">
-        Email: <a :href="'mailto:' + comment.user.email">{{ comment.user.email }}</a>
+      <div v-if="comment.user?.email" class="text-sm">
+        Email: <a :href="'mailto:' + comment.user.email" class="text-blue-500">{{ comment.user.email }}</a>
       </div>
-      <div v-if="comment.user?.homepage">
-        Home: <a :href="comment.user.homepage" target="_blank">{{ comment.user.homepage }}</a>
+      <div v-if="comment.user?.homepage" class="text-sm">
+        Домашня сторінка: <a :href="comment.user.homepage" target="_blank" class="text-blue-500">{{ comment.user.homepage }}</a>
       </div>
 
       <!-- File upload -->
-      <div v-if="comment.file">
+      <div v-if="comment.file" class="mt-2">
         <template v-if="isTextFile">
-          <a :href="getFileUrl(comment.file)" download>Download TXT</a>
+          <a :href="getFileUrl(comment.file)" download class="text-blue-500">Завантажити TXT</a>
         </template>
         <img
           v-else
           :src="getFileUrl(comment.file)"
           @click="openLightbox(getFileUrl(comment.file))"
-          style="max-width: 320px; cursor: pointer"
+          class="max-w-xs cursor-pointer"
         />
       </div>
 
       <!-- Reply button -->
-      <button v-if="comment.id" @click="showReplyForm = !showReplyForm" class="btn btn-link">Reply</button>
+      <button v-if="comment.id" @click="showReplyForm = !showReplyForm" class="text-blue-500 mt-2">Відповісти</button>
 
       <!-- Reply form -->
-      <div v-if="showReplyForm" class="reply-form">
+      <div v-if="showReplyForm" class="mt-4">
         <CommentForm :parentId="comment.id" @submitted="addReply" />
       </div>
 
@@ -50,7 +50,7 @@
       <EasyLightbox v-model:visible="visible" :imgs="[lightboxUrl]" />
 
       <!-- Replies -->
-      <div v-if="comment.replies?.length" class="replies">
+      <div v-if="comment.replies?.length" class="mt-4 pl-4 border-l-4 border-gray-300">
         <CommentItem
           v-for="reply in comment.replies"
           :key="reply.id || reply.tempId"
@@ -132,49 +132,4 @@ export default {
 </script>
 
 <style scoped>
-.comment-block {
-  display: flex;
-  margin: 10px 0;
-  padding: 10px;
-  border-bottom: 1px solid #ddd;
-  border-left: 3px solid #ccc;
-}
-.avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  margin-right: 10px;
-}
-.content {
-  flex: 1;
-}
-.header {
-  font-weight: bold;
-  color: #333;
-  margin-bottom: 5px;
-}
-.time {
-  font-size: 0.8em;
-  color: #888;
-  margin-left: 10px;
-}
-.text {
-  margin: 5px 0;
-}
-.replies {
-  padding-left: 15px;
-  border-left: 3px solid #ccc;
-}
-.reply-form {
-  margin-top: 10px;
-}
-.reply-to {
-  font-size: 0.9em;
-  color: #555;
-  margin-bottom: 5px;
-  font-style: italic;
-}
-.username {
-  color: #007bff;
-}
 </style>
