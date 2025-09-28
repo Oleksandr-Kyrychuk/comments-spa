@@ -2,6 +2,7 @@
 set -e
 
 export PYTHONPATH=/app/comments_project:$PYTHONPATH
+export DJANGO_SETTINGS_MODULE=comments_project.settings
 
 # PostgreSQL
 echo "Waiting for PostgreSQL..."
@@ -38,5 +39,14 @@ until redis-cli -u "$REDIS_URL" ping | grep -q PONG; do
 done
 echo "Redis ready!"
 
-# Запуск CMD
+# Для безпечного підхоплення DATABASE_URL у Django (якщо використовуєш dj-database-url)
+if [ -n "$DATABASE_URL" ]; then
+    python - <<END
+import os, dj_database_url
+from django.conf import settings
+settings.DATABASES = {"default": dj_database_url.parse(os.environ["DATABASE_URL"])}
+END
+fi
+
+# Запуск Celery або іншої команди
 exec "$@"
