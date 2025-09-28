@@ -54,5 +54,4 @@ if [ -z "$PORT" ]; then
 fi
 
 # Запуск Daphne
-pip install gunicorn  # Додай в requirements.txt якщо немає
-exec gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 90 --log-level debug --access-logfile - --error-logfile - comments_project.wsgi:application
+exec daphne -b 0.0.0.0 -p $PORT comments_project.asgi:application
