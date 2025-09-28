@@ -105,8 +105,15 @@ export default {
       `https://www.gravatar.com/avatar/${md5(props.comment.user?.email || '')}?s=40&d=identicon`
     );
     const formatDate = (dateStr) => new Date(dateStr).toLocaleString();
-    const getFileUrl = (filePath) =>
-      filePath ? (filePath.startsWith(mediaUrl) ? filePath : mediaUrl + filePath) : '';
+    const getFileUrl = (filePath) => {
+  if (!filePath) return '';
+  if (filePath.startsWith('http') || filePath.startsWith('blob')) {
+    return filePath;  // Для blob або full http
+  }
+  // Нормалізуємо: видаляємо /media/ якщо є, щоб додати mediaUrl
+  const normalized = filePath.replace(/^\/media\//, '');
+  return mediaUrl + normalized;  // mediaUrl вже включає /media/
+};
 
     return {
       isTextFile,

@@ -79,26 +79,14 @@ class CommentListCreateView(generics.ListCreateAPIView):
                     # Викликаємо Celery таск для WebSocket
                     save_comment.delay(instance.id)
 
-                # Очищаємо весь кеш після створення коментаря
                 cache.clear()
                 logger.info("Cache cleared after comment creation")
 
-                # Повертаємо відповідь
-                parent_id = instance.parent.id if instance.parent else None
-                response_data = {
-                    'id': instance.id,
-                    'user': serializer.validated_data['user'],
-                    'text': serializer.validated_data['text'],
-                    'parent': parent_id,
-                    'file': str(serializer.validated_data.get('file')) if serializer.validated_data.get('file') else None,
-                    'created_at': instance.created_at,
-                    'replies': [],
-                    'parent_username': instance.parent.user.username if instance.parent else ''
-                }
+                response_serializer = self.get_serializer(instance)
                 return Response(
                     {
                         "message": "Comment saved successfully",
-                        "data": response_data
+                        "data": response_serializer.data
                     },
                     status=status.HTTP_201_CREATED
                 )

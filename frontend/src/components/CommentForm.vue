@@ -323,6 +323,7 @@ console.log('CAPTCHA response:', data);
 
         // Оновлюємо коментар з серверним ID
         newComment.id = response.data.data?.id || null;
+        newComment.file = response.data.data?.file || newComment.file;
         console.log('Updated comment with server ID:', newComment.id);
 
         // Очищаємо форму
