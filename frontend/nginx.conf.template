@@ -5,13 +5,9 @@ server {
     error_log /dev/stdout debug;
     access_log /dev/stdout;
 
-    location / {
-        root /usr/share/nginx/html;
-        try_files $uri $uri/ /index.html;
-    }
-
-    location /api/ {
-        proxy_pass $BACKEND_URL/api/;
+    # Специфічні location зверху
+    location /csrf-cookie/ {
+        proxy_pass $BACKEND_URL/csrf-cookie/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -29,19 +25,11 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_connect_timeout 90s;
         proxy_read_timeout 90s;
+        proxy_send_timeout 90s;
     }
 
     location /captcha/ {
         proxy_pass $BACKEND_URL/captcha/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_connect_timeout 90s;
-        proxy_read_timeout 90s;
-    }
-
-    location /csrf-cookie/ {
-        proxy_pass $BACKEND_URL/csrf-cookie/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -54,5 +42,21 @@ server {
         proxy_set_header Host $host;
         proxy_connect_timeout 90s;
         proxy_read_timeout 90s;
+    }
+
+    # Загальний API location знизу
+    location /api/ {
+        proxy_pass $BACKEND_URL/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_connect_timeout 90s;
+        proxy_read_timeout 90s;
+    }
+
+    # Статичні файли фронтенду
+    location / {
+        root /usr/share/nginx/html;
+        try_files $uri $uri/ /index.html;
     }
 }
