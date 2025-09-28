@@ -11,7 +11,5 @@ FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf.template /etc/nginx/conf.d/nginx.conf.template
 
-# Підстановка BACKEND_URL і PORT у конфіг
-ENV PORT=80
 CMD envsubst '$BACKEND_URL $PORT' < /etc/nginx/conf.d/nginx.conf.template > /etc/nginx/conf.d/default.conf && \
     nginx -g 'daemon off;'
