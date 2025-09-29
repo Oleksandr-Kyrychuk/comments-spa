@@ -41,7 +41,7 @@
       </button>
     </div>
   </div>
-</template>>
+</template>
 
 <script>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
@@ -57,6 +57,9 @@ export default {
     const store = useStore();
     const ordering = ref('-created_at');
     const ws = ref(null);
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+    const reconnectInterval = 5000; // 5 секунд
 
     const comments = computed(() => store.state.comments?.comments || []);
     const pagination = computed(() => store.state.comments?.pagination || { previous: null, next: null });
@@ -88,7 +91,7 @@ export default {
     };
 
     const handleIncomingComment = (newComment) => {
-      console.log('Handling incoming comment:', newComment);
+      console.log('Received WebSocket comment:', JSON.stringify(newComment, null, 2));
       console.log('Comment ID:', newComment.id, 'Parent:', newComment.parent);
       console.log('Existing comments:', store.state.comments.comments);
 
@@ -114,29 +117,55 @@ export default {
       }
     };
 
-   onMounted(() => {
-  console.log('CommentList mounted');
-  fetchComments();
+    const connectWebSocket = () => {
+      let wsUrl;
+      if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+        wsUrl = 'ws://localhost:8000/ws/comments/';
+      } else {
+        wsUrl = 'wss://' + location.host + '/ws/comments/';
+      }
+      console.log('Connecting to WebSocket:', wsUrl);
+      ws.value = new WebSocket(wsUrl);
 
-  let wsUrl;
-  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-    wsUrl = 'ws://localhost:8000/ws/comments/';
-  } else {
-    wsUrl = 'wss://' + location.host + '/ws/comments/';
-  }
+      ws.value.onopen = () => {
+        console.log('WebSocket connected');
+        reconnectAttempts = 0; // Скидаємо лічильник при успішному підключенні
+      };
 
-  const ws = new WebSocket(wsUrl);
+      ws.value.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        console.log('WebSocket message received:', JSON.stringify(data, null, 2));
+        if (data.type === 'new_comment') {
+          handleIncomingComment(data.comment);
+        } else {
+          // Обробка випадку, якщо бекенд відправляє коментар без обгортки
+          handleIncomingComment(data);
+        }
+      };
 
-  ws.onopen = () => console.log('WebSocket connected');
-  ws.onmessage = event => {
-    const data = JSON.parse(event.data);
-    console.log('WebSocket message received:', data);
-    console.log('Comment ID:', data.comment?.id, 'Parent:', data.comment?.parent);
-    if (data.type === 'new_comment') handleIncomingComment(data.comment);
-  };
-  ws.onerror = error => console.error('WebSocket error:', error);
-  ws.onclose = () => console.log('WebSocket disconnected');
-});
+      ws.value.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+
+      ws.value.onclose = () => {
+        console.log('WebSocket disconnected');
+        if (reconnectAttempts < maxReconnectAttempts) {
+          reconnectAttempts++;
+          console.log(`Reconnecting WebSocket, attempt ${reconnectAttempts}`);
+          setTimeout(connectWebSocket, reconnectInterval);
+        } else {
+          console.error('Max WebSocket reconnect attempts reached');
+        }
+      };
+    };
+
+    onMounted(() => {
+      console.log('CommentList mounted');
+      fetchComments();
+      connectWebSocket();
+      const pollInterval = setInterval(fetchComments, 30000); // Кожні 30 секунд
+      return () => clearInterval(pollInterval); // Очищення при демонтажі
+    });
 
     onUnmounted(() => {
       if (ws.value) {
