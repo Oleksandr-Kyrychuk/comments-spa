@@ -22,23 +22,12 @@ class CommentConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             logger.error(f"Failed to remove {self.channel_name} from group: {e}")
 
-
-    async def receive(self, text_data):
-        data = json.loads(text_data)
-        await self.channel_layer.group_send(
-            "comments_group",
-            {
-                "type": "new_comment",
-                "comment": data
-            }
-        )
-
-    async def new_comment(self, event):
+    async def comment_message(self, event):
         try:
-            logger.info(f"Sending WebSocket message: {event}")
+            logger.info(f"Sending WebSocket message to {self.channel_name}: {event['message']}")
             await self.send(text_data=json.dumps({
                 'type': 'new_comment',
-                'comment': event['comment']
+                'comment': event['message']
             }))
         except Exception as e:
             logger.error(f"Error sending WebSocket message: {str(e)}")
