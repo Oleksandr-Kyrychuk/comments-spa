@@ -22,6 +22,17 @@ class CommentConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             logger.error(f"Failed to remove {self.channel_name} from group: {e}")
 
+    async def receive(self, text_data):
+        try:
+            data = json.loads(text_data)
+            if data.get('type') == 'ping':
+                await self.send(text_data=json.dumps({'type': 'pong'}))
+                logger.info(f"Received ping, sent pong to {self.channel_name}")
+            else:
+                logger.warn(f"Unknown message received: {data}")
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse WebSocket message: {e}")
+
     async def comment_message(self, event):
         try:
             logger.info(f"Sending WebSocket message to {self.channel_name}: {event['message']}")
