@@ -11,11 +11,9 @@ class CommentConsumer(AsyncWebsocketConsumer):
             await self.channel_layer.group_add("comments_group", self.channel_name)
             await self.accept()
             logger.info(f"WebSocket connected: {self.channel_name} and added to group 'comments_group'")
-            # Логуємо активні канали в групі
-            group_channels = await self.channel_layer.group_channels('comments_group')
-            logger.info(f"Current group members: {group_channels}")
         except Exception as e:
             logger.error(f"Failed to add {self.channel_name} to group: {e}")
+            await self.close(code=1011, reason=f"Failed to add to group: {str(e)}")
 
     async def disconnect(self, close_code):
         logger.info(f"Removing {self.channel_name} from group 'comments_group'")
@@ -35,13 +33,25 @@ class CommentConsumer(AsyncWebsocketConsumer):
                 logger.warn(f"Unknown message received: {data}")
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse WebSocket message: {e}")
+            await self.close(code=1011, reason=f"Invalid JSON: {str(e)}")
 
-    async def comment_message(self, event):
+    async def new_comment(self, event):
         try:
-            logger.info(f"Sending WebSocket message to {self.channel_name}: {event['message']}")
+            message = event['comment']
+            message_size = len(json.dumps({'type': 'new_comment', 'comment': message}).encode('utf-8'))
+            logger.info(f"Sending WebSocket message to {self.channel_name}, size: {message_size} bytes")
+            if message_size > 1048576:  # 1MB ліміт
+                logger.error(f"Message too large for WebSocket: {message_size} bytes")
+                await self.close(code=1011, reason="Message too large")
+                return
             await self.send(text_data=json.dumps({
                 'type': 'new_comment',
-                'comment': event['message']
+                'comment': message
             }))
+            logger.info(f"Successfully sent WebSocket message to {self.channel_name}")
+        except KeyError as e:
+            logger.error(f"Invalid event format: {str(e)}, event: {event}")
+            await self.close(code=1011, reason=f"Invalid event format: {str(e)}")
         except Exception as e:
-            logger.error(f"Error sending WebSocket message: {str(e)}")
+            logger.error(f"Error sending WebSocket message: {str(e)}, event: {event}")
+            await self.close(code=1011, reason=f"Send error: {str(e)}")
