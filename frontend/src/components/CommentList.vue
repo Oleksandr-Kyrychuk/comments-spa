@@ -58,8 +58,8 @@ export default {
     const ordering = ref('-created_at');
     const ws = ref(null);
     let reconnectAttempts = 0;
-    const maxReconnectAttempts = 5;
-    const reconnectInterval = 5000; // 5 секунд
+    const maxReconnectAttempts = 10; // Збільшено кількість спроб
+    const reconnectInterval = 3000; // Зменшено інтервал до 3 секунд
 
     const comments = computed(() => store.state.comments?.comments || []);
     const pagination = computed(() => store.state.comments?.pagination || { previous: null, next: null });
@@ -87,6 +87,11 @@ export default {
         store.commit('comments/ADD_REPLY', { parentId, reply: comment });
       } else {
         store.commit('comments/ADD_COMMENT', comment);
+      }
+      // Спробувати підключити WebSocket, якщо він неактивний
+      if (!ws.value || ws.value.readyState === WebSocket.CLOSED || ws.value.readyState === WebSocket.CLOSING) {
+        console.log('WebSocket is closed or closing, attempting to reconnect');
+        connectWebSocket();
       }
     };
 
@@ -133,13 +138,23 @@ export default {
       };
 
       ws.value.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        console.log('WebSocket message received:', JSON.stringify(data, null, 2));
+        console.log('Raw WebSocket message:', event.data);
+        let data;
+        try {
+          data = JSON.parse(event.data);
+          console.log('Parsed WebSocket message:', JSON.stringify(data, null, 2));
+        } catch (error) {
+          console.error('Failed to parse WebSocket message:', error);
+          return;
+        }
+
         if (data.type === 'new_comment') {
           handleIncomingComment(data.comment);
-        } else {
-          // Обробка випадку, якщо бекенд відправляє коментар без обгортки
+        } else if (data.id && data.text && data.created_at) {
+          console.log('Treating message as direct comment:', data);
           handleIncomingComment(data);
+        } else {
+          console.warn('Unknown WebSocket message format:', data);
         }
       };
 
@@ -147,8 +162,8 @@ export default {
         console.error('WebSocket error:', error);
       };
 
-      ws.value.onclose = () => {
-        console.log('WebSocket disconnected');
+      ws.value.onclose = (event) => {
+        console.log('WebSocket disconnected. Code:', event.code, 'Reason:', event.reason);
         if (reconnectAttempts < maxReconnectAttempts) {
           reconnectAttempts++;
           console.log(`Reconnecting WebSocket, attempt ${reconnectAttempts}`);
