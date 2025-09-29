@@ -88,9 +88,11 @@ export default {
       if (parentId) {
         store.commit('comments/ADD_REPLY', { parentId, reply: comment });
       } else {
-        const existing = store.state.comments.comments.find(c => c.id === comment.id);
+        const existing = store.state.comments.comments.find(c => c.id === comment.id || c.tempId === comment.tempId);
         if (!existing) {
           store.commit('comments/ADD_COMMENT', comment);
+        } else {
+          console.log('Comment already exists, skipping:', comment);
         }
       }
       if (!ws.value || ws.value.readyState === WebSocket.CLOSED || ws.value.readyState === WebSocket.CLOSING) {
@@ -183,7 +185,6 @@ export default {
           setTimeout(connectWebSocket, reconnectInterval);
         } else {
           console.error('Max WebSocket reconnect attempts reached');
-          // Запускаємо опитування як резервний варіант
           const pollInterval = setInterval(fetchComments, 30000);
           onUnmounted(() => clearInterval(pollInterval));
         }
@@ -194,7 +195,6 @@ export default {
       console.log('CommentList mounted');
       fetchComments();
       connectWebSocket();
-      // Опитування тільки якщо WebSocket не підключений
       const pollInterval = setInterval(() => {
         if (!isWebSocketConnected.value) {
           console.log('WebSocket is not connected, polling comments');

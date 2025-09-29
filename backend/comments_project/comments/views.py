@@ -15,8 +15,6 @@ import logging
 from .tasks import save_comment
 from django.core.cache import cache
 from django.db import transaction
-from channels.layers import get_channel_layer
-from asgiref.sync import async_to_sync
 
 logger = logging.getLogger(__name__)
 
@@ -77,32 +75,7 @@ class CommentListCreateView(generics.ListCreateAPIView):
                     instance = serializer.save()
                     logger.info(f"Comment saved with id: {instance.id}")
 
-                    # Пряма відправка WebSocket-повідомлення
-                    channel_layer = get_channel_layer()
-                    serialized_comment = {
-                        'id': instance.id,
-                        'user': {
-                            'username': instance.user.username,
-                            'email': instance.user.email,
-                            'homepage': instance.user.homepage
-                        },
-                        'text': instance.text,
-                        'parent': instance.parent_id,
-                        'file': instance.file.url if instance.file else None,
-                        'created_at': instance.created_at.isoformat(),
-                        'replies': [],
-                        'parent_username': instance.parent.user.username if instance.parent else ''
-                    }
-                    async_to_sync(channel_layer.group_send)(
-                        'comments_group',
-                        {
-                            'type': 'new_comment',
-                            'comment': serialized_comment
-                        }
-                    )
-                    logger.info(f"Comment {instance.id} sent via WebSocket")
-
-                    # Виклик Celery-завдання (як резервний варіант)
+                    # Виклик Celery-завдання для відправки через WebSocket
                     save_comment.delay(instance.id)
 
                 cache_key = f"comment_list_1_-created_at"
