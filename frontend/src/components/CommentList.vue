@@ -73,7 +73,7 @@ export default {
     }, { deep: true });
 
     const fetchComments = async () => {
-      console.log('Fetching comments for page:', currentPage.value);
+      console.log('Fetching comments for page:', currentPage.value, 'with ordering:', ordering.value);
       await store.dispatch('comments/fetchComments', {
         baseUrl: API_BASE,
         page: currentPage.value,
@@ -93,11 +93,12 @@ export default {
       console.log('Comment submitted:', comment, 'Parent:', parentId);
       if (parentId) {
         store.commit('comments/ADD_REPLY', { parentId, reply: comment });
+        // Оновлюємо список для відображення відповідей
+        fetchComments();
       } else {
         const existing = store.state.comments.comments.find(c => c.id === comment.id || c.tempId === comment.tempId);
         if (!existing) {
           store.commit('comments/ADD_COMMENT', comment);
-          // Оновлюємо список коментарів для поточної сторінки
           fetchComments();
         } else {
           console.log('Comment already exists, skipping:', comment);
@@ -126,14 +127,15 @@ export default {
       if (existing) {
         console.log('Updating existing comment with tempId:', existing.tempId, 'to ID:', newComment.id);
         store.commit('comments/UPDATE_COMMENT', newComment);
+        fetchComments(); // Оновлюємо список для синхронізації
       } else {
         console.log('Adding new comment:', newComment);
         if (newComment.parent) {
           store.commit('comments/ADD_REPLY', { parentId: newComment.parent, reply: newComment });
+          fetchComments(); // Оновлюємо список для відображення відповідей
         } else {
           store.commit('comments/ADD_COMMENT', newComment);
-          // Оновлюємо список коментарів для поточної сторінки
-          fetchComments();
+          fetchComments(); // Оновлюємо список для нових коментарів
         }
       }
     };
