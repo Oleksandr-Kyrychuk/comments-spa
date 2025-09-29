@@ -4,7 +4,7 @@ import { toRaw } from 'vue';
 export default {
   namespaced: true,
   state: () => ({
-    comments: [],
+    comments: [], // всі завантажені коментарі
     pagination: { previous: null, next: null },
     ordering: '-created_at',
     currentPage: 1,
@@ -12,19 +12,19 @@ export default {
   mutations: {
     SET_COMMENTS(state, comments) {
       state.comments = comments;
-      console.log('SET_COMMENTS:', comments.map(c => ({ id: c.id, text: c.text, replies: c.replies.map(r => r.id) })));
     },
     SET_PAGINATION(state, pagination) {
       state.pagination = pagination;
-      console.log('SET_PAGINATION:', pagination);
     },
     SET_CURRENT_PAGE(state, page) {
       state.currentPage = page;
-      console.log('SET_CURRENT_PAGE:', page);
     },
     ADD_COMMENT(state, comment) {
-      console.log('Adding comment:', comment);
-      state.comments = [comment, ...state.comments];
+      // перевіряємо, чи коментар вже є (по id або tempId)
+      const exists = state.comments.some(c => c.id === comment.id || c.tempId === comment.tempId);
+      if (!exists) {
+        state.comments = [comment, ...state.comments];
+      }
     },
     ADD_REPLY(state, { parentId, reply }) {
       const findComment = (comments, id) => {
@@ -39,7 +39,6 @@ export default {
         return null;
       };
 
-      console.log('Adding reply with parentId:', parentId, 'Reply:', reply);
       const parent = findComment(state.comments, parentId);
       if (parent) {
         parent.replies = [
@@ -50,29 +49,28 @@ export default {
             replies: reply.replies || [],
           },
         ];
-        console.log('Parent found, updated replies:', parent.replies);
       } else {
-        console.error('Parent comment not found for parentId:', parentId);
+        console.warn('Parent comment not found for parentId:', parentId);
       }
     },
-    UPDATE_COMMENT(state, { tempId, updatedComment }) {
-      console.log('Updating comment with tempId:', tempId, 'to:', updatedComment);
-      const findComment = (comments) => {
+    UPDATE_COMMENT(state, updatedComment) {
+      const findAndUpdate = (comments) => {
         const rawComments = toRaw(comments);
         for (const c of rawComments) {
-          if (c.tempId === tempId) {
+          if (c.id === updatedComment.id || c.tempId === updatedComment.tempId) {
             Object.assign(c, updatedComment);
             return true;
           }
           if (c.replies?.length) {
-            if (findComment(c.replies)) return true;
+            if (findAndUpdate(c.replies)) return true;
           }
         }
         return false;
       };
 
-      if (!findComment(state.comments)) {
-        console.error('Comment with tempId not found:', tempId);
+      if (!findAndUpdate(state.comments)) {
+        // якщо коментару немає, додаємо його (можливо прийшов новий через WebSocket)
+        state.comments = [updatedComment, ...state.comments];
       }
     },
   },
@@ -80,21 +78,14 @@ export default {
     async fetchComments({ commit, state }, { baseUrl, page = 1 } = {}) {
       try {
         const apiUrl = baseUrl || 'http://localhost:8000/api';
-        console.log('Fetching comments from:', `${apiUrl}/comments/`, 'with params:', { ordering: state.ordering, page });
-
         const res = await axios.get(`${apiUrl}/comments/`, {
           params: { ordering: state.ordering, page },
           withCredentials: true,
           headers: { 'X-Requested-With': 'XMLHttpRequest' },
         });
 
-        console.log('API response:', res.data);
-        console.log('Results:', res.data.results);
-        console.log('Replies for each comment:', res.data.results.map(c => ({ id: c.id, replies: c.replies.map(r => r.id) })));
-
         const normalizeReplies = (comment) => {
-          console.log('Normalizing comment:', comment);
-          comment.replies = comment.replies?.map(r => normalizeReplies(r)) || [];
+          comment.replies = comment.replies?.map(normalizeReplies) || [];
           comment.user = {
             username: comment.user?.username || comment.user_name || 'Анонім',
             email: comment.user?.email || '',
@@ -104,23 +95,19 @@ export default {
         };
 
         const comments = (res.data.results || []).map(normalizeReplies);
-        console.log('Comments for current page:', comments.map(c => ({ id: c.id, text: c.text, replies: c.replies.map(r => r.id) })));
 
-        commit('SET_COMMENTS', comments); // Зберігаємо лише коментарі поточної сторінки
+        commit('SET_COMMENTS', comments);
         commit('SET_PAGINATION', { previous: res.data.previous, next: res.data.next });
         commit('SET_CURRENT_PAGE', page);
 
-        return comments; // Повертаємо коментарі для використання в компоненті
+        return comments;
       } catch (err) {
         console.error('Fetch comments error:', err.response?.data || err.message);
-        console.error('Status:', err.response?.status);
-        console.error('Headers:', err.response?.headers);
         throw err;
       }
     },
     changePage({ dispatch }, { baseUrl, page }) {
-  console.log('Changing page to:', page);
-  dispatch('fetchComments', { baseUrl, page });
-},
+      dispatch('fetchComments', { baseUrl, page });
+    },
   },
 };
