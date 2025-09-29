@@ -96,8 +96,8 @@ class CommentListCreateView(generics.ListCreateAPIView):
                     async_to_sync(channel_layer.group_send)(
                         'comments_group',
                         {
-                            'type': 'comment_message',
-                            'message': serialized_comment
+                            'type': 'new_comment',
+                            'comment': serialized_comment
                         }
                     )
                     logger.info(f"Comment {instance.id} sent via WebSocket")
