@@ -69,17 +69,16 @@ export default {
       };
 
       if (!findAndUpdate(state.comments)) {
-        // якщо коментару немає, додаємо його (можливо прийшов новий через WebSocket)
-        state.comments = [updatedComment, ...state.comments];
+        console.warn('Comment not found for update:', updatedComment);
       }
     },
   },
   actions: {
-    async fetchComments({ commit, state }, { baseUrl, page = 1 } = {}) {
+    async fetchComments({ commit, state }, { baseUrl, page = 1, ordering } = {}) {
       try {
         const apiUrl = baseUrl || 'http://localhost:8000/api';
         const res = await axios.get(`${apiUrl}/comments/`, {
-          params: { ordering: state.ordering, page },
+          params: { ordering: ordering || state.ordering, page },
           withCredentials: true,
           headers: { 'X-Requested-With': 'XMLHttpRequest' },
         });

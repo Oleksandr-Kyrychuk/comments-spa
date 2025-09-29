@@ -44,7 +44,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useStore } from 'vuex';
 import CommentForm from './CommentForm.vue';
 import CommentItem from './CommentItem.vue';
@@ -67,11 +67,17 @@ export default {
     const currentPage = computed(() => store.state.comments?.currentPage || 1);
     const isWebSocketConnected = computed(() => ws.value && ws.value.readyState === WebSocket.OPEN);
 
+    // Спостерігаємо за змінами в comments
+    watch(comments, (newComments) => {
+      console.log('Comments updated:', newComments.map(c => ({ id: c.id, text: c.text })));
+    }, { deep: true });
+
     const fetchComments = async () => {
       console.log('Fetching comments for page:', currentPage.value);
       await store.dispatch('comments/fetchComments', {
         baseUrl: API_BASE,
         page: currentPage.value,
+        ordering: ordering.value,
       });
     };
 
@@ -91,6 +97,8 @@ export default {
         const existing = store.state.comments.comments.find(c => c.id === comment.id || c.tempId === comment.tempId);
         if (!existing) {
           store.commit('comments/ADD_COMMENT', comment);
+          // Оновлюємо список коментарів для поточної сторінки
+          fetchComments();
         } else {
           console.log('Comment already exists, skipping:', comment);
         }
@@ -117,13 +125,15 @@ export default {
 
       if (existing) {
         console.log('Updating existing comment with tempId:', existing.tempId, 'to ID:', newComment.id);
-        store.commit('comments/UPDATE_COMMENT', { tempId: newComment.tempId, updatedComment: newComment });
+        store.commit('comments/UPDATE_COMMENT', newComment);
       } else {
         console.log('Adding new comment:', newComment);
         if (newComment.parent) {
           store.commit('comments/ADD_REPLY', { parentId: newComment.parent, reply: newComment });
         } else {
           store.commit('comments/ADD_COMMENT', newComment);
+          // Оновлюємо список коментарів для поточної сторінки
+          fetchComments();
         }
       }
     };
