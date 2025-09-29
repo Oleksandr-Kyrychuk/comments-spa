@@ -11,6 +11,9 @@ class CommentConsumer(AsyncWebsocketConsumer):
             await self.channel_layer.group_add("comments_group", self.channel_name)
             await self.accept()
             logger.info(f"WebSocket connected: {self.channel_name} and added to group 'comments_group'")
+            # Логуємо активні канали в групі
+            group_channels = await self.channel_layer.group_channels('comments_group')
+            logger.info(f"Current group members: {group_channels}")
         except Exception as e:
             logger.error(f"Failed to add {self.channel_name} to group: {e}")
 
@@ -18,7 +21,7 @@ class CommentConsumer(AsyncWebsocketConsumer):
         logger.info(f"Removing {self.channel_name} from group 'comments_group'")
         try:
             await self.channel_layer.group_discard("comments_group", self.channel_name)
-            logger.info(f"WebSocket disconnected: {self.channel_name}, code: {close_code}")
+            logger.info(f"WebSocket disconnected: {self.channel_name}, code: {close_code}, reason: {self.close_reason or 'No reason provided'}")
         except Exception as e:
             logger.error(f"Failed to remove {self.channel_name} from group: {e}")
 

@@ -65,6 +65,7 @@ export default {
     const comments = computed(() => store.state.comments?.comments || []);
     const pagination = computed(() => store.state.comments?.pagination || { previous: null, next: null });
     const currentPage = computed(() => store.state.comments?.currentPage || 1);
+    const isWebSocketConnected = computed(() => ws.value && ws.value.readyState === WebSocket.OPEN);
 
     const fetchComments = async () => {
       console.log('Fetching comments for page:', currentPage.value);
@@ -87,7 +88,10 @@ export default {
       if (parentId) {
         store.commit('comments/ADD_REPLY', { parentId, reply: comment });
       } else {
-        store.commit('comments/ADD_COMMENT', comment);
+        const existing = store.state.comments.comments.find(c => c.id === comment.id);
+        if (!existing) {
+          store.commit('comments/ADD_COMMENT', comment);
+        }
       }
       if (!ws.value || ws.value.readyState === WebSocket.CLOSED || ws.value.readyState === WebSocket.CLOSING) {
         console.log('WebSocket is closed or closing, attempting to reconnect');
@@ -135,13 +139,12 @@ export default {
       ws.value.onopen = () => {
         console.log('WebSocket connected');
         reconnectAttempts = 0;
-        // Запускаємо періодичне пінгування
         pingInterval = setInterval(() => {
           if (ws.value && ws.value.readyState === WebSocket.OPEN) {
             ws.value.send(JSON.stringify({ type: 'ping' }));
             console.log('Sent WebSocket ping');
           }
-        }, 30000); // Пінг кожні 30 секунд
+        }, 30000);
       };
 
       ws.value.onmessage = (event) => {
@@ -173,13 +176,16 @@ export default {
 
       ws.value.onclose = (event) => {
         console.log('WebSocket disconnected. Code:', event.code, 'Reason:', event.reason);
-        clearInterval(pingInterval); // Зупиняємо пінгування
+        clearInterval(pingInterval);
         if (reconnectAttempts < maxReconnectAttempts) {
           reconnectAttempts++;
           console.log(`Reconnecting WebSocket, attempt ${reconnectAttempts}`);
           setTimeout(connectWebSocket, reconnectInterval);
         } else {
           console.error('Max WebSocket reconnect attempts reached');
+          // Запускаємо опитування як резервний варіант
+          const pollInterval = setInterval(fetchComments, 30000);
+          onUnmounted(() => clearInterval(pollInterval));
         }
       };
     };
@@ -188,7 +194,13 @@ export default {
       console.log('CommentList mounted');
       fetchComments();
       connectWebSocket();
-      const pollInterval = setInterval(fetchComments, 30000);
+      // Опитування тільки якщо WebSocket не підключений
+      const pollInterval = setInterval(() => {
+        if (!isWebSocketConnected.value) {
+          console.log('WebSocket is not connected, polling comments');
+          fetchComments();
+        }
+      }, 30000);
       return () => clearInterval(pollInterval);
     });
 
