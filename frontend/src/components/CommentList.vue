@@ -115,23 +115,23 @@ export default {
     };
 
     onMounted(() => {
-      console.log('CommentList mounted');
-      fetchComments();
+  console.log('CommentList mounted');
+  fetchComments();
 
-const wsUrl = 'wss://' + location.host + '/ws/comments/';
-      console.log('Connecting to WebSocket:', wsUrl);
-      ws.value = new WebSocket(wsUrl);
+  const wsUrl = process.env.VUE_APP_WS_BASE || 'ws://localhost:8000/ws/comments/';
+  console.log('Connecting to WebSocket:', wsUrl);
+  ws.value = new WebSocket(wsUrl);
 
-      ws.value.onopen = () => console.log('WebSocket connected');
-      ws.value.onmessage = event => {
-        const data = JSON.parse(event.data);
-        console.log('WebSocket message received:', data);
-        console.log('Comment ID:', data.comment?.id, 'Parent:', data.comment?.parent);
-        if (data.type === 'new_comment') handleIncomingComment(data.comment);
-      };
-      ws.value.onerror = error => console.error('WebSocket error:', error);
-      ws.value.onclose = () => console.log('WebSocket disconnected');
-    });
+  ws.value.onopen = () => console.log('WebSocket connected');
+  ws.value.onmessage = event => {
+    const data = JSON.parse(event.data);
+    console.log('WebSocket message received:', data);
+    console.log('Comment ID:', data.comment?.id, 'Parent:', data.comment?.parent);
+    if (data.type === 'new_comment') handleIncomingComment(data.comment);
+  };
+  ws.value.onerror = error => console.error('WebSocket error:', error);
+  ws.value.onclose = () => console.log('WebSocket disconnected');
+});
 
     onUnmounted(() => {
       if (ws.value) {

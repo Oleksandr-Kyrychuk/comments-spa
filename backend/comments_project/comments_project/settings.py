@@ -43,6 +43,7 @@ MIDDLEWARE = [
 
 # Об'єднані CORS і CSRF налаштування для локальної, Docker і Production
 CORS_ALLOWED_ORIGINS = [
+"http://localhost:8080",
     'https://balanced-reprieve-production-d814.up.railway.app',
     'https://comments-spa-production-56a1.up.railway.app',
 ]
