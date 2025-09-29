@@ -1,9 +1,11 @@
+version: "3.9"
+
 services:
   django:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: daphne -b 0.0.0.0 -p 8000 comments_project.asgi:application
+    command: python /app/comments_project/manage.py runserver 0.0.0.0:8000
     entrypoint: ["/app/entrypoint-django.sh"]
     user: appuser
     ports:
@@ -20,6 +22,11 @@ services:
       - PYTHONPATH=/app/comments_project
       - DATABASE_URL=postgres://user:user_password@postgres:5432/comments_db
       - REDIS_URL=redis://redis:6379/0
+      - PORT=8000
+      - ALLOWED_HOSTS=*
+      - CORS_ALLOW_ALL_ORIGINS=True
+      - CORS_ALLOW_CREDENTIALS=True
+      - DEBUG=True
     depends_on:
       redis:
         condition: service_healthy
@@ -52,6 +59,7 @@ services:
       - PYTHONPATH=/app/comments_project
       - DATABASE_URL=postgres://user:user_password@postgres:5432/comments_db
       - REDIS_URL=redis://redis:6379/0
+      - DEBUG=True
     depends_on:
       redis:
         condition: service_healthy
@@ -100,9 +108,12 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     ports:
       - "8080:80"
+    environment:
+      - BACKEND_URL=http://django:8000
+      - PORT=80
     depends_on:
       django:
         condition: service_healthy
