@@ -1,227 +1,150 @@
 # Comments SPA
 
 ## Project Overview
-Comments SPA is a single-page application for managing threaded comments with user identification, file uploads, and real-time updates. Built with Django (backend) and Vue.js (frontend), it uses PostgreSQL for data storage, Redis for caching and message brokering, Celery for asynchronous tasks, and Django Channels for WebSocket-based real-time comment updates. The application supports JWT authentication, CAPTCHA for spam protection, and validated file uploads (images and text files).
-
-This project fulfills the **Junior+** level requirements, incorporating Queue (Celery), Cache (Redis), Events (WebSocket), and JWT authentication.
+Comments SPA is a single-page application for managing threaded comments with user identification, file uploads, and real-time updates. Built with Django (backend) and Vue.js (frontend), it uses PostgreSQL for data storage, Redis for caching and message brokering, Celery for asynchronous tasks, and Django Channels for WebSocket-based real-time comment updates. The application supports JWT authentication, CAPTCHA for spam protection, and validated file uploads (images and text files). This project fulfills the **Junior+** level requirements, incorporating Queue (Celery), Cache (Redis), Events (WebSocket/signals), and JWT authentication.
 
 ## Features
 - **Threaded Comments**: Supports nested comments with no depth limit (frontend renders up to 5 levels for performance).
 - **Form Fields**:
-  - **User Name**: Alphanumeric, required.
-  - **Email**: Valid email format, required.
-  - **Home Page**: Valid URL, optional.
-  - **CAPTCHA**: Image-based, alphanumeric, refreshable, required.
-  - **Text**: Supports HTML tags `<a href title>`, `<code>`, `<i>`, `<strong>` with XSS sanitization.
+  - **User Name**: Alphanumeric, required (client-side HTML5 validation with `pattern="^[a-zA-Z0-9]+$"`).
+  - **Email**: Valid email format, required (client-side `type="email"`).
+  - **Home Page**: Valid URL, optional (client-side `type="url"`).
+  - **CAPTCHA**: Image-based, alphanumeric, refreshable via `/captcha/refresh/`, required.
+  - **Text**: Supports HTML tags `<a href title>`, `<code>`, `<i>`, `<strong>` with server-side XSS sanitization using `bleach`.
 - **File Uploads**:
-  - Images (JPG, GIF, PNG) resized to 320x240 pixels.
+  - Images (JPG, GIF, PNG) resized to 320x240 pixels server-side using `PIL`.
   - Text files (TXT) up to 100KB.
-  - Lightbox effect for image previews using vue-easy-lightbox.
-- **Sorting**: By username, email, or date (ascending/descending, default: LIFO).
-- **Pagination**: 25 comments per page for top-level comments.
-- **Real-Time Updates**: New comments are pushed via WebSocket.
+  - Lightbox effect for image previews using `vue-easy-lightbox`.
+- **Sorting**: By username, email, or date (ascending/descending, default: LIFO via `-created_at`).
+- **Pagination**: 25 top-level comments per page.
+- **Real-Time Updates**: New comments/replies pushed via WebSocket using Django Channels.
 - **Security**:
-  - XSS protection via `bleach` for HTML sanitization.
-  - SQL injection prevention via Django ORM.
-  - CSRF protection for forms.
-  - Optional JWT authentication for comment creation.
-- **Asynchronous Processing**: Comment creation handled by Celery tasks.
+  - **XSS**: HTML sanitized with `bleach` (allowed tags: `<a>`, `<code>`, `<i>`, `<strong>`).
+  - **SQL Injection**: Prevented by Django ORM.
+  - **CSRF**: Enabled for forms via `/csrf-cookie/`.
+  - **File Validation**: Server-side checks for file formats and sizes.
+  - **CAPTCHA**: Server-side validation using `django-simple-captcha`.
+  - **JWT**: Optional authentication for API (currently `AllowAny` for comment creation).
+- **Asynchronous Processing**: Comment creation handled by Celery tasks with Redis as the broker.
 - **Caching**: Comment lists cached in Redis with a 15-minute TTL.
-- **Docker**: Fully containerized with Django, Celery, Redis, PostgreSQL, and Nginx.
+- **Docker**: Fully containerized with `docker-compose.yml` for Django, Celery, PostgreSQL, Redis, and Vue.js frontend.
 
-## Tech Stack
-- **Backend**: Django 4.2, Django REST Framework, Django Channels, Celery, django-redis, rest_framework_simplejwt, django-captcha.
-- **Frontend**: Vue.js 3, Vuex, vue-easy-lightbox, axios.
-- **Database**: PostgreSQL 15.
-- **Cache/Queue**: Redis 7.2.
-- **Containerization**: Docker, Docker Compose.
-- **Web Server**: Nginx (frontend), Daphne (Django ASGI).
-
-## Project Structure
-```
-comments-spa/
-├── docs/
-│   └── schema.sql
-├── backend/
-│   ├── comments/
-│   │   ├── __init__.py
-│   │   ├── admin.py
-│   │   ├── apps.py
-│   │   ├── consumers.py
-│   │   ├── models.py
-│   │   ├── routing.py
-│   │   ├── serializers.py
-│   │   ├── signals.py
-│   │   ├── tasks.py
-│   │   ├── tests.py
-│   │   ├── urls.py
-│   │   └── views.py
-│   ├── comments_project/
-│   │   ├── __init__.py
-│   │   ├── asgi.py
-│   │   ├── settings.py
-│   │   ├── urls.py
-│   │   └── wsgi.py
-│   ├── db/
-│   │   └── init.sql (optional, for test data)
-│   ├── Dockerfile
-│   ├── entrypoint-celery.sh
-│   ├── entrypoint-django.sh
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── CommentForm.vue
-│   │   │   ├── CommentItem.vue
-│   │   │   ├── CommentList.vue
-│   │   │   └── HelloWorld.vue
-│   │   ├── store/
-│   │   │   ├── comments.js
-│   │   │   └── index.js
-│   ├── Dockerfile
-│   ├── package.json
-│   └── nginx.conf
-├── docker-compose.yml
-└── README.md
-```
-
-## Prerequisites
-- Docker and Docker Compose installed.
-- Git for cloning the repository.
-- Node.js 18 (optional, for local frontend development).
-- Python 3.11 (optional, for local backend development).
-
-## Installation and Setup
-### 1. Clone the Repository
-```bash
-git clone <repository-url>
-cd comments-spa
-```
-
-### 2. Set Up Environment Variables
-Create a `.env` file in the project root:
-```env
-SECRET_KEY=your-secret-key
-DATABASE_URL=postgres://user:user_password@postgres:5432/comments_db
-REDIS_URL=redis://redis:6379/0
-```
-
-### 3. Build and Run with Docker
-```bash
-docker-compose up --build
-```
-- Starts Django (port 8000), Celery, Redis, PostgreSQL, and Nginx (port 8080).
-- Django migrations are applied automatically via `entrypoint-django.sh`.
-- Access the app at `http://localhost:8080`.
-
-### 4. Create a Superuser (Optional)
-```bash
-docker-compose exec django python /app/comments_project/manage.py createsuperuser
-```
-Access the admin panel at `http://localhost:8000/admin/`.
-
-### 5. Testing
-Run tests (basic setup, expand as needed):
-```bash
-docker-compose exec django python /app/comments_project/manage.py test
-```
-
-## Usage
-1. **Open the App**: Navigate to `http://localhost:8080`.
-2. **Create a Comment**:
-   - Fill in the form (username, email, optional homepage, text, CAPTCHA).
-   - Use tag buttons ([i], [strong], [code], [a]) to insert allowed HTML.
-   - Optionally upload an image (JPG/GIF/PNG) or TXT file.
-   - Click "Preview" to see sanitized text.
-   - Submit to post (processed asynchronously via Celery, pushed via WebSocket).
-3. **View Comments**:
-   - Comments are displayed in a threaded view with pagination (25 per page).
-   - Sort by username, email, or date using the dropdown.
-   - Click images to view in a lightbox.
-4. **Reply**: Click "Reply" to add nested comments.
-5. **JWT Authentication** (Optional):
-   - Get a token: `POST /api/token/` with `{ "username": "", "password": "" }`.
-   - Include `Authorization: Bearer <token>` in API requests.
-
-## API Endpoints
-- **GET /api/comments/**: List top-level comments (paginated, 25 per page).
-  - Query params: `ordering=user__username,user__email,created_at,-created_at`, `page=<number>`.
-- **POST /api/comments/**: Create a comment (multipart/form-data).
-  - Body: `{ "user": { "username": "", "email": "", "homepage": "" }, "text": "", "parent": null|<id>, "file": <file>, "captcha_0": "", "captcha_1": "" }`.
-  - Returns 202 Accepted, processes via Celery.
-- **POST /api/preview/**: Preview sanitized text.
-  - Body: `{ "text": "" }`.
-- **GET /csrf-cookie/**: Get CSRF token for form submissions.
-- **GET /captcha/refresh/**: Refresh CAPTCHA image.
-- **POST /api/token/**: Obtain JWT token.
-- **POST /api/token/refresh/**: Refresh JWT token.
-
-## WebSocket
-- Connect to `ws://localhost:8000/ws/comments/` for real-time comment updates.
-- Events: `new_comment` with serialized comment data.
+## Technology Stack
+- **Backend**:
+  - Django 4.x with Django REST Framework
+  - Django Channels for WebSocket
+  - Celery for asynchronous tasks
+  - Redis for caching and message brokering
+  - PostgreSQL for data storage
+  - `bleach` for HTML sanitization
+  - `django-simple-captcha` for CAPTCHA
+  - `djangorestframework-simplejwt` for JWT authentication
+- **Frontend**:
+  - Vue.js 3 with Vuex for state management
+  - Axios for API requests
+  - `vue-easy-lightbox` for image previews
+  - Tailwind CSS for styling
+- **Deployment**:
+  - Docker and `docker-compose.yml`
+  - Nginx for serving frontend static files
+  - Daphne for ASGI backend
 
 ## Database Schema
-The database schema is defined in `docs/schema.sql` for PostgreSQL and can be visualized in MySQL Workbench for review as per the test assignment requirements. This file contains the SQL code to create the `users` and `comments` tables with appropriate constraints and indexes.
-
-To apply the schema manually in a PostgreSQL environment:
-```bash
-psql -U user -d postgres -f docs/schema.sql
-```
-
-To generate the schema from the running PostgreSQL instance (alternative method):
-```bash
-docker-compose exec postgres pg_dump -h postgres -U user -d comments_db --schema-only > docs/schema.sql
-```
-
 - **users**:
-  - id (PK, BIGSERIAL)
-  - username (VARCHAR(50), alphanumeric, required)
-  - email (VARCHAR(255), email format, required)
-  - homepage (VARCHAR(255), URL, optional)
-  - created_at (TIMESTAMP WITH TIME ZONE)
+  - `id`: Auto-incrementing primary key
+  - `username`: CharField, max 50, alphanumeric (RegexValidator `^[a-zA-Z0-9]+$`)
+  - `email`: EmailField, required
+  - `homepage`: URLField, optional
+  - `created_at`: DateTimeField (auto_now_add)
   - Indexes: [username, email]
 - **comments**:
-  - id (PK, BIGSERIAL)
-  - user_id (FK to users, ON DELETE CASCADE)
-  - text (TEXT, max 5000 chars, sanitized HTML)
-  - parent_id (FK to self, nullable, ON DELETE CASCADE)
-  - file (VARCHAR(255), uploads/YYYY/MM/DD/, nullable)
-  - created_at (TIMESTAMP WITH TIME ZONE)
+  - `id`: Auto-incrementing primary key
+  - `user`: ForeignKey to `users` (CASCADE)
+  - `text`: TextField, max 5000 chars
+  - `parent`: ForeignKey to self, optional (CASCADE)
+  - `file`: FileField, optional (uploads to `uploads/%Y/%m/%d/`)
+  - `created_at`: DateTimeField (auto_now_add)
   - Indexes: [created_at, user_id], [parent_id]
+- Schema file: `docs/schema.sql` (exported for MySQL Workbench compatibility)
 
 ## Security
-- **XSS**: HTML sanitized with `bleach` (allowed: `<a>`, `<code>`, `<i>`, `<strong>`).
+- **XSS**: HTML sanitized server-side with `bleach`.
 - **SQL Injection**: Prevented by Django ORM.
-- **CSRF**: Enabled for forms, CSRF token via `/csrf-cookie/`.
-- **File Validation**: Images resized to 320x240, TXT <=100KB, formats checked.
+- **CSRF**: Enabled for forms with CSRF token via `/csrf-cookie/`.
+- **File Validation**: Images resized to 320x240, TXT files limited to 100KB, formats validated server-side.
 - **CAPTCHA**: Alphanumeric, image-based, validated server-side.
-- **JWT**: Optional authentication for API (IsAuthenticatedOrReadOnly).
+- **JWT**: Configured for API authentication, though comment creation currently allows anonymous users.
 
 ## Known Issues and Improvements
-- **Table View**: Top-level comments use div-based threads instead of a table for better responsiveness and mobile compatibility. A table-based UI can be added if required.
-- **XHTML Validation**: `bleach` sanitizes HTML but does not enforce strict XHTML tag closure. A check via `lxml` can be added for full compliance.
-- **JWT Enforcement**: Comment creation allows anonymous users for flexibility. Can be restricted to authenticated users if needed.
-- **Tests**: Basic tests exist in `tests.py`. Functional tests for comment creation and API endpoints can be added for robustness.
+- **Table View**: Top-level comments use `<div>` with indentation instead of a table for responsiveness. A table-based UI can be implemented if required.
+- **XHTML Validation**: `bleach` sanitizes HTML but does not enforce strict XHTML tag closure. Can add `lxml` for full compliance.
+- **JWT Enforcement**: Comment creation allows anonymous users for flexibility. Can restrict to authenticated users with `IsAuthenticated`.
+- **Tests**: Minimal tests in `tests.py`. Additional functional tests for comment creation, file uploads, and API endpoints recommended.
+- **Client-Side Validation**: Limited to HTML5 attributes. JavaScript validation for HTML tags and file checks can be added.
 
-## Deployment
-- **Hosting**: Tested on Render.com. Set `DATABASE_URL`, `REDIS_URL`, `SECRET_KEY` in environment variables.
+## Installation and Setup
+### Prerequisites
+- Docker and Docker Compose
+- Node.js 18 (for local frontend development)
+- Python 3.11 (for local backend development)
+
+### Local Development with Docker
+1. Clone the repository:
+   ```bash
+   git clone <https://github.com/Oleksandr-Kyrychuk/comments-spa/>
+   cd comments-spa
+   ```
+2. Copy environment files:
+   ```bash
+   cp .env.example .env
+   cp frontend/.env.example frontend/.env
+   ```
+3. Update `.env` files with appropriate values (e.g., `SECRET_KEY`, `VUE_APP_API_URL`).
+4. Build and run with Docker Compose:
+   ```bash
+   docker-compose up --build
+   ```
+5. Access the application:
+   - Frontend: `http://localhost:8080`
+   - Backend API: `http://localhost:8000/api`
+   - Admin panel: `http://localhost:8000/admin` (create superuser with 'cd backend/comments_project' and  `python manage.py createsuperuser`)
+
+### Local Development without Docker
+1. Backend:
+   ```bash
+   cd backend
+   python -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   python comments_project/manage.py migrate
+   python comments_project/manage.py runserver
+   ```
+2. Frontend:
+   ```bash
+   cd frontend
+   npm install
+   npm run serve
+   ```
+
+### Deployment
+- **Hosting**: Tested on Railway.com.
 - **Steps**:
-  1. Push Docker images to a registry (e.g., Docker Hub).
-  2. Deploy with `docker-compose.yml` or Render blueprint.
-  3. Ensure `ALLOWED_HOSTS` includes the hosting domain.
+  1. Set environment variables (`DATABASE_URL`, `REDIS_URL`, `SECRET_KEY`, `ALLOWED_HOSTS`) in the hosting platform.
+  2. Push Docker images to a registry (e.g., Docker Hub).
+  3. Deploy using `Dockers` or platform-specific configuration (e.g., Render blueprint).
+  4. Ensure `ALLOWED_HOSTS` and `CORS_ALLOWED_ORIGINS` include the hosting domain.
 
-## Development Notes
-- For local development without Docker:
-  ```bash
-  cd backend
-  pip install -r requirements.txt
-  python manage.py migrate
-  python manage.py runserver
-  cd ../frontend
-  npm install
-  npm run serve
-  ```
-- Video demonstration: [Link to video](https://your-video-hosting-service.com/video) (TBD: upload and update link).
+## API Endpoints
+- **GET /api/comments/**: List top-level comments (paginated, sortable).
+- **POST /api/comments/**: Create a comment (with optional file and parent).
+- **POST /preview/**: Preview sanitized comment text.
+- **GET/POST /captcha/**: Generate CAPTCHA.
+- **GET /captcha/refresh/**: Refresh CAPTCHA.
+- **POST /api/token/**: Obtain JWT token.
+- **POST /api/token/refresh/**: Refresh JWT token.
+- **GET /csrf-cookie/**: Get CSRF token.
+- **WebSocket /ws/comments/**: Real-time comment updates.
 
-## Contact
-For feedback or issues, contact the developer at [your-email@example.com].
+## Video Demonstration
+[Link to video](https://your-video-hosting-service.com/video) (upload and update link before submission).
+
