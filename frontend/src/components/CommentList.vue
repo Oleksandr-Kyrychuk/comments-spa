@@ -58,8 +58,9 @@ export default {
     const ordering = ref('-created_at');
     const ws = ref(null);
     let reconnectAttempts = 0;
-    const maxReconnectAttempts = 10; // Збільшено кількість спроб
-    const reconnectInterval = 3000; // Зменшено інтервал до 3 секунд
+    const maxReconnectAttempts = 10;
+    const reconnectInterval = 3000;
+    let pingInterval = null;
 
     const comments = computed(() => store.state.comments?.comments || []);
     const pagination = computed(() => store.state.comments?.pagination || { previous: null, next: null });
@@ -88,7 +89,6 @@ export default {
       } else {
         store.commit('comments/ADD_COMMENT', comment);
       }
-      // Спробувати підключити WebSocket, якщо він неактивний
       if (!ws.value || ws.value.readyState === WebSocket.CLOSED || ws.value.readyState === WebSocket.CLOSING) {
         console.log('WebSocket is closed or closing, attempting to reconnect');
         connectWebSocket();
@@ -134,7 +134,14 @@ export default {
 
       ws.value.onopen = () => {
         console.log('WebSocket connected');
-        reconnectAttempts = 0; // Скидаємо лічильник при успішному підключенні
+        reconnectAttempts = 0;
+        // Запускаємо періодичне пінгування
+        pingInterval = setInterval(() => {
+          if (ws.value && ws.value.readyState === WebSocket.OPEN) {
+            ws.value.send(JSON.stringify({ type: 'ping' }));
+            console.log('Sent WebSocket ping');
+          }
+        }, 30000); // Пінг кожні 30 секунд
       };
 
       ws.value.onmessage = (event) => {
@@ -153,6 +160,8 @@ export default {
         } else if (data.id && data.text && data.created_at) {
           console.log('Treating message as direct comment:', data);
           handleIncomingComment(data);
+        } else if (data.type === 'pong') {
+          console.log('Received WebSocket pong');
         } else {
           console.warn('Unknown WebSocket message format:', data);
         }
@@ -164,6 +173,7 @@ export default {
 
       ws.value.onclose = (event) => {
         console.log('WebSocket disconnected. Code:', event.code, 'Reason:', event.reason);
+        clearInterval(pingInterval); // Зупиняємо пінгування
         if (reconnectAttempts < maxReconnectAttempts) {
           reconnectAttempts++;
           console.log(`Reconnecting WebSocket, attempt ${reconnectAttempts}`);
@@ -178,12 +188,13 @@ export default {
       console.log('CommentList mounted');
       fetchComments();
       connectWebSocket();
-      const pollInterval = setInterval(fetchComments, 30000); // Кожні 30 секунд
-      return () => clearInterval(pollInterval); // Очищення при демонтажі
+      const pollInterval = setInterval(fetchComments, 30000);
+      return () => clearInterval(pollInterval);
     });
 
     onUnmounted(() => {
       if (ws.value) {
+        clearInterval(pingInterval);
         ws.value.close();
         console.log('WebSocket closed');
       }
